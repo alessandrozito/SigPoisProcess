@@ -14,7 +14,7 @@ Description: More about what it does (maybe more than one line).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Imports: Rcpp, RcppArmadillo, LaplacesDemon, RcppHungarian, ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer, GenomicRanges, BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19, CompressiveNMF
+Imports: Rcpp, RcppArmadillo, LaplacesDemon, RcppHungarian, patchwork, ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer, GenomicRanges, BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19, CompressiveNMF
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: rmarkdown
 VignetteBuilder: knitr

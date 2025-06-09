@@ -435,7 +435,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // calculate_Sig_covariate_prob
-arma::cube calculate_Sig_covariate_prob(arma::mat& X, arma::mat& R, arma::cube& Betas, arma::uvec& channel_id, arma::uvec& sample_id);
+List calculate_Sig_covariate_prob(arma::mat& X, arma::mat& R, arma::cube& Betas, arma::uvec& channel_id, arma::uvec& sample_id);
 RcppExport SEXP _SigPoisProcess_calculate_Sig_covariate_prob(SEXP XSEXP, SEXP RSEXP, SEXP BetasSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;

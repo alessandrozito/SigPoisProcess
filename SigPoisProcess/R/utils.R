@@ -42,3 +42,37 @@ get_df_trinucl <- function(maf, genome = BSgenome.Hsapiens.UCSC.hg19){
   return(df_trinucl)
 }
 
+#' @export
+match_to_RefSigs <- function(sigs, ref){
+  all <- sigminer::cosine(sigs, ref)
+  ids <- cbind(1:nrow(all), apply(all, 1, which.max))
+  data.frame("sigs" = colnames(sigs), "best" = colnames(ref)[ids[, 2]], "cosine" = round(all[ids], 3))
+}
+
+#' @export
+estimateTotalCounts.SigPoisProcess <- function(object, ...){
+  R <- object$Signatures
+  Betas <- object$Betas
+  X_total <- object$Xbar[1, , ]
+  MatOut <-sapply(1:ncol(Betas), function(j) R %*% Betas[, j, ] %*% X_total[j, ], simplify = TRUE)
+  colnames(MatOut) <- colnames(Betas)
+  rownames(MatOut) <- rownames(R)
+  return(MatOut)
+}
+
+#' @export
+getTotalMutations <- function(gr_Mutations){
+  Mutations <- as.data.frame(mcols(gr_Mutations)) %>%
+    dplur::select(sample, channel)
+  Mutations$sample <- factor(Mutations$sample, levels = rownames(X_totals))
+  Mutations$channel <- as.factor(Mutations$channel)
+  X_all <- table(Mutations$channel, Mutations$sample)
+  matrix(X_all, nrow = nrow(X_all), dimnames = dimnames(X_all))
+}
+
+
+
+
+
+
+

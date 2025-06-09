@@ -2,35 +2,35 @@
 % Please edit documentation in R/SigPoisProcess.R
 \name{SigPoisProcess}
 \alias{SigPoisProcess}
-\title{Poisson process factorization for mutaitonal signatures analysis}
+\title{Poisson process factorization for topographic-dependent mutational signatures analysis}
 \usage{
 SigPoisProcess(
-  Mutations,
-  X,
-  X_total,
-  method = "gibbs",
+  gr_Mutations,
+  df_areas,
+  method = "map",
+  add_baseline = TRUE,
   K = 10,
-  prior_params = list(),
-  controls = list(),
-  init = list()
+  prior_params = SigPoisProcess.PriorParams(),
+  controls = SigPoisProcess.controls(),
+  init = SigPoisProcess.init()
 )
 }
 \arguments{
-\item{Mutations}{Dataframe containing the mutations}
+\item{gr_Mutations}{GenomicRanges object contatining covariates and samples}
 
-\item{X}{Covariates}
+\item{df_areas}{data.frame containing the total areas of each covariate for each sample}
 
-\item{X_total}{Total surface of the Poisson process}
+\item{method}{Which method to use for the estimation. Available options are 'mle', 'map' and 'gibbs'}
 
-\item{method}{Which method to use for the estimation. Available options are 'gibbs', 'cavi' and 'map'}
+\item{add_baseline}{Wheter to add a baseline equal to 1 to the whole model.}
 
 \item{prior_params}{The hyperparameters of the prior.}
 
-\item{controls}{Control parameters}
+\item{controls}{Control parameters for each method. See \code{SigPoisProcess.contol}}
 }
 \value{
-An object
+An object of class SigPoisProcess.
 }
 \description{
-Poisson process factorization for mutaitonal signatures analysis
+Poisson process factorization for topographic-dependent mutational signatures analysis
 }

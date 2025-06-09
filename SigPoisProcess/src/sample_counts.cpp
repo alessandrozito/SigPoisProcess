@@ -78,7 +78,7 @@ List sample_Counts_cpp(arma::mat & X, arma::mat & R, arma::cube & Betas,
 
 
 // [[Rcpp::export]]
-arma::cube calculate_Sig_covariate_prob(arma::mat & X,
+List calculate_Sig_covariate_prob(arma::mat & X,
                                         arma::mat & R,
                                         arma::cube & Betas,
                                         arma::uvec & channel_id,
@@ -89,13 +89,23 @@ arma::cube calculate_Sig_covariate_prob(arma::mat & X,
   int K = R.n_cols;
   int J = Betas.n_cols;
   arma::cube Probs(N_mut, K, L);
+  arma::umat MaxProbIds(N_mut, 2);
   for(int i=0; i<N_mut; i++){
     int j = sample_id(i);
     arma::rowvec r_i = R.row(channel_id(i));
     arma::mat tab = (r_i.t() * X.row(i)) % Betas.col_as_mat(j);
     Probs.row(i) = tab/arma::accu(tab);
+
+    // Find the indeces of the maximum values to attribute to the mutation.
+    arma::uword ind = tab.index_max();       // linear index of maximum
+    arma::uword n_rows = tab.n_rows;
+    arma::uword row = ind % n_rows;        // row index (zero-based)
+    arma::uword col = ind / n_rows;        // col index (zero-based)
+    MaxProbIds(i, 0) = row + 1; // Row index (1-based)
+    MaxProbIds(i, 1) = col + 1; // Col index (1-based)
   }
-  return Probs;
+  return List::create(_["Probs"] = Probs,
+                      _["MaxProbIds"] = MaxProbIds);
 }
 
 // You can include R code blocks in C++ files processed with sourceCpp

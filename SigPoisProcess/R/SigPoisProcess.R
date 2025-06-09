@@ -1,25 +1,52 @@
-#' Poisson process factorization for mutaitonal signatures analysis
+#' Poisson process factorization for topographic-dependent mutational signatures analysis
 #'
-#' @param Mutations Dataframe containing the mutations
-#' @param X Covariates
-#' @param X_total Total surface of the Poisson process
-#' @param method Which method to use for the estimation. Available options are 'gibbs', 'cavi' and 'map'
+#' @param gr_Mutations GenomicRanges object contatining covariates and samples
+#' @param df_areas data.frame containing the total areas of each covariate for each sample
+#' @param add_baseline Wheter to add a baseline equal to 1 to the whole model.
+#' @param method Which method to use for the estimation. Available options are 'mle', 'map' and 'gibbs'
 #' @param prior_params The hyperparameters of the prior.
-#' @param controls Control parameters
-#'
-#' @returns An object
+#' @param controls Control parameters for each method. See \code{SigPoisProcess.contol}
+#' @returns An object of class SigPoisProcess.
 #' @export
 #' @useDynLib SigPoisProcess
 #' @import Rcpp
 #' @import RcppArmadillo
-SigPoisProcess <- function(Mutations,
-                           X,
-                           X_total,
-                           method = "gibbs",
+SigPoisProcess <- function(gr_Mutations,
+                           df_areas,
+                           method = "map",
+                           add_baseline = TRUE,
                            K = 10,
-                           prior_params = list(),
-                           controls = list(),
-                           init = list()) {
+                           prior_params = SigPoisProcess.PriorParams(),
+                           controls = SigPoisProcess.controls(),
+                           init = SigPoisProcess.init()) {
+
+  # Extract the data and the covariates
+  X <- as.data.frame(mcols(gr_Mutations)) %>%
+    dplyr::select(where(is.numeric)) %>%
+    as.matrix()
+
+  X_totals <- df_areas %>%
+    column_to_rownames(var = "sample") %>%
+    dplyr::select(where(is.numeric)) %>%
+    as.matrix()
+
+  # Extract mutation data
+  Mutations <- as.data.frame(mcols(gr_Mutations)) %>%
+    dplur::select(sample, channel)
+  Mutations$sample <- factor(Mutations$sample, levels = rownames(X_totals))
+  Mutations$channel <- as.factor(Mutations$channel)
+
+  # Add baseline
+  if (add_baseline) {
+    # Pad baseline to the data
+    X <- cbind("baseline" = 1, X)
+    # Load the Genome and get the chromosome length
+    genome <- BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19
+    std_chrs <- paste0("chr", c(1:22, "X", "Y"))
+    chrom_lengths <- seqlengths(genome)[1:24]
+    X_totals <- cbind("baseline" = sum(1 * chrom_lengths), X_totals)
+  }
+
   # Extract channel and sample Id from the mutation list
   if (!is.factor(Mutations$channel)) {
     stop("Variable channel in Mutations has to be a factor")
@@ -65,7 +92,7 @@ SigPoisProcess <- function(Mutations,
     SigPrior <- SigPrior[levels(Mutations$channel), ] # reorder
     if (K > 0) {
       SigPrior_new <- matrix(alpha, nrow = I, ncol = K)
-      colnames(SigPrior_new) <- paste0("Sig_new", 1:K)
+      colnames(SigPrior_new) <- paste0("SigN", sprintf("%02d", 1:K))
       rownames(SigPrior_new) <- rownames(SigPrior)
       SigPrior <- cbind(SigPrior, SigPrior_new)
       K <- Kpre + K
@@ -74,7 +101,7 @@ SigPoisProcess <- function(Mutations,
     }
   } else {
     SigPrior <- matrix(alpha, nrow = I, ncol = K)
-    colnames(SigPrior) <- paste0("Sig", 1:K)
+    colnames(SigPrior) <- paste0("SigN", sprintf("%02d", 1:K))
     rownames(SigPrior) <- levels(Mutations$channel)
   }
 
@@ -134,16 +161,14 @@ SigPoisProcess <- function(Mutations,
     rownames(Sigs) <- rownames(SigPrior)
     Loads <- out_mle$Betas
     dimnames(Loads) <- list(colnames(SigPrior), levels(Mutations$sample), colnames(X))
-    # Calculate Signature-covariate assignment for each mutation
-    Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
+
     #---- Store results in a list
     results$mle <- out_mle
     results$Signatures <- Sigs
     results$Betas <- Loads
     results$Mu <- NULL
     results$SigPrior <- SigPrior
-    results$Sig_Cov_prob <- Sig_Cov_prob
-    results$Xbar <- X_bar
+
   }
   ######################################################
   # MAP
@@ -152,19 +177,12 @@ SigPoisProcess <- function(Mutations,
     cat("Calculating the maximum-a-posteriori for the model \n")
     maxiter <- controls$maxiter
     tol <- controls$tol
-    use_acceleration <- controls$nesterov
     merge_move <- controls$merge_move
-    # Run the search for the map
-    if(use_acceleration == TRUE){
-      out_map <- compute_SigPoisProcess_MAP_Nest(R_start, Betas_start, Mu_start, SigPrior,
-        a, a0, b0, X, X_bar, channel_id - 1, sample_id - 1, maxiter, tol, Betas_scaled)
-    } else {
-      out_map <- compute_SigPoisProcess_MAP(R_start = R_start, Betas_start = Betas_start,
+    out_map <- compute_SigPoisProcess_MAP(R_start = R_start, Betas_start = Betas_start,
                                             Mu_start = Mu_start, SigPrior = SigPrior,
                                             a = a, a0 = a0, b0 = b0, X = X, X_bar = X_bar,
                                             channel_id = channel_id - 1, sample_id = sample_id - 1,
                                             maxiter = maxiter, tol = tol, scaled = Betas_scaled, merge_move = merge_move)
-    }
 
     #--- Postprocess results
     Sigs <- out_map$R
@@ -175,17 +193,16 @@ SigPoisProcess <- function(Mutations,
     mu <- out_map$Mu
     rownames(mu) <- colnames(SigPrior)
     colnames(mu) <- colnames(X)
-    # Calculate Signature-covariate assignment for each mutation
-    Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
+
     #---- Store results in a list
     results$map <- out_map
     results$Signatures <- Sigs
     results$Betas <- Loads
     results$Mu <- mu
     results$SigPrior <- SigPrior
-    results$Sig_Cov_prob <- Sig_Cov_prob
-    results$Xbar <- X_bar
+
   }
+
   ######################################################
   # Gibbs
   ######################################################
@@ -198,12 +215,10 @@ SigPoisProcess <- function(Mutations,
     Mu <- Mu_start
     Betas <- Betas_start
     R <- R_start
-
     # Store the output
     MU <- array(NA, c(nsamples, K, L))
     BETAS <- array(NA, c(nsamples, K, J, L))
     SIGNS <- array(NA, dim = c(nsamples, I, K))
-    A <- rep(NA, nsamples)
     # Run the Sampling steps
     pb <- txtProgressBar(style = 3)
     for (iter in 1:(nsamples + burnin)) {
@@ -224,16 +239,6 @@ SigPoisProcess <- function(Mutations,
       # Sample Mu
       #Mu <- sample_Mu(Beta = Betas, epsilon = epsilon, a = a)
       Mu <- sample_Mu_scaled(Betas, X_bar, a, a0, b0)
-      # Sample a
-      if(controls$sample_a){
-        Mu_all <- array(NA, dim = c(K, J, L))
-        for(j in 1:J) Mu_all[, j, ] <- Mu
-        a <- sample_Post_a(1, epsilon, Betas, Mu_all, X_bar)
-        #print(a)
-        #if(a < 0.01){
-        #  browser()
-        #  }
-      }
       if (iter > burnin) {
         SIGNS[iter - burnin, , ] <- R
         BETAS[iter - burnin, , , ] <- Betas
@@ -248,55 +253,37 @@ SigPoisProcess <- function(Mutations,
     colnames(Sigs) <- colnames(SigPrior)
     rownames(Sigs) <- rownames(SigPrior)
     mu <- apply(MU, c(2, 3), mean)
-    Loads <- apply(BETAS, c(2, 3, 4), mean)
     rownames(mu) <- colnames(SigPrior)
+    colnames(mu) <- colnames(X)
+    Loads <- apply(BETAS, c(2, 3, 4), mean)
+    dimnames(Loads) <- list(colnames(SigPrior), levels(Mutations$sample), colnames(X))
+
     #---------- Save it
     results$Signatures <- Sigs
     results$Betas <- Loads
     results$Mu <- mu
     results$gibbs$MU <- MU
-    results$gibbs$A <- A
+    results$SigPrior <- SigPrior
+    results$Xbar <- X_bar
   }
 
-  #------ CAVI
-  if (method == "cavi") {
-    cat("Mean-field approximation of the posterior via CAVI \n")
-    maxiter <- controls$maxiter
-    tol <- controls$tol
-    #------ Initialize quantities
-    # Signatures
-    alpha_r <- matrix(rgamma(I * K, SigPrior), nrow = I, ncol = K) + 1e-10 # Nugget for the gamma
-    # Loadings parameters
-    a_beta <- array(rgamma(K * J * L, a), dim = c(K, J, L))
-    b_beta <- array(rgamma(K * J * L, a / epsilon), dim = c(K, J, L))
-    # Relevance weights
-    a_mu <- matrix(2, nrow = K, ncol = L) # matrix(rgamma(K * L, a0), nrow = K, ncol = L)
-    b_mu <- matrix(2, nrow = K, ncol = L) # matrix(rgamma(K * L, b0), nrow = K, ncol = L)
-    # Mutation signature-covariate probabilities
-    Phi <- array(1 / (K * L), dim = c(N, K, L))
-    # Run the CAVI algorithm for the inhomogeneous Poisson factorization
-    logX <- log(X + 1e-18)
-    out_cavi <- InhomogeneousPoissonNMF_CAVI(Phi, alpha_r, a_beta, b_beta,
-      a_mu, b_mu, logX, X_bar,
-      channel_id - 1,
-      sample_id - 1,
-      SigPrior,
-      a = a, a0, b0, maxiter = maxiter
-    )
-    #---------- Postprocess output
-    Sigs <- apply(out_cavi$alpha_r, 2, function(x) x / sum(x))
-    colnames(Sigs) <- colnames(SigPrior)
-    rownames(Sigs) <- rownames(SigPrior)
-    Loads <- out_cavi$a_beta / out_cavi$b_beta
-    mu <- out_cavi$b_mu / (out_cavi$a_mu - 1)
-    rownames(mu) <- colnames(SigPrior)
-    #---------- Save it
-    results$cavi <- out_cavi
-    results$Signatures <- Sigs
-    results$Betas <- Loads
-    results$Mu <- mu
-  }
+  # Calculate Signature-covariate assignment for each mutation
+  Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
+  Probs <- Sig_Cov_prob$Probs
+  dimnames(Probs)[[2]] <- colnames(Sigs)
+  dimnames(Probs)[[3]] <- dimnames(Loads)[[3]]
+  MaxProbIds <- as.data.frame(Sig_Cov_prob$MaxProbIds) %>%
+    group_by(V1, V2) %>%
+    summarise(Fraction = n()/nrow(Mutations)) %>%
+    as.data.frame()
+  MaxProbIds$V1 <- colnames(Sigs)[MaxProbIds$V1]
+  MaxProbIds$V2 <- dimnames(Loads)[[3]][MaxProbIds$V2]
+  colnames(MaxProbIds) <- c("Signature", "Covariate", "Fraction")
+  results$Probs <- Probs
+  results$AttrSummary <- MaxProbIds
+  results$Xbar <- X_bar
 
+  class(results) <- "SigPoisProcess"
   return(results)
 }
 
@@ -306,7 +293,8 @@ SigPoisProcess <- function(Mutations,
 SigPoisProcess.PriorParams <- function(a = 1.01, alpha = 1.01,
                                        epsilon = 0.001,
                                        Betas_scaled = TRUE,
-                                       a0 = NULL, b0 = NULL,
+                                       a0 = NULL,
+                                       b0 = NULL,
                                        SigPrior = NULL){
   list(a = a, alpha = alpha, epsilon = epsilon,
        Betas_scaled = Betas_scaled,
@@ -317,23 +305,23 @@ SigPoisProcess.PriorParams <- function(a = 1.01, alpha = 1.01,
 #' @export
 SigPoisProcess.controls <- function(nsamples = 2000,
                                     burnin = 5000,
-                                    sample_a = FALSE,
                                     maxiter = 1e6,
                                     tol = 1e-6,
                                     nrepl = 1,
                                     ncores = 1,
-                                    nesterov = FALSE,
                                     merge_move = TRUE){
-  list(nsamples = nsamples, burnin = burnin, sample_a = sample_a,
+  list(nsamples = nsamples, burnin = burnin,
        maxiter = maxiter, tol = tol, nrepl = nrepl,
        ncores = ncores,
-       nesterov = nesterov,
        merge_move = merge_move)
 }
 
 #' @export
-SigPoisProcess.init <- function(R_start = NULL, Betas_start = NULL, Mu_start = NULL){
-  list(R_start = R_start, Betas_start = Betas_start, Mu_start = Mu_start)
+SigPoisProcess.init <- function(R_start = NULL,
+                                Betas_start = NULL,
+                                Mu_start = NULL){
+  list(R_start = R_start, Betas_start = Betas_start,
+       Mu_start = Mu_start)
 }
 
 
