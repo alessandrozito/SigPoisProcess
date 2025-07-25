@@ -2,50 +2,53 @@
 #'
 #' @param gr_Mutations GenomicRanges object contatining covariates and samples
 #' @param df_areas data.frame containing the total areas of each covariate for each sample
-#' @param add_baseline Wheter to add a baseline equal to 1 to the whole model.
 #' @param method Which method to use for the estimation. Available options are 'mle', 'map' and 'gibbs'
 #' @param prior_params The hyperparameters of the prior.
+#' @param K Upper bound to the number of signatures expected in the data
+#' @param compressType Type of penalty for the automatic selection of priors using compressive hyperpriors. Available type are 'sig' and 'sig_cov'
+#' @param init Initialization parameters. See \code{SigPoisProcess.init}
 #' @param controls Control parameters for each method. See \code{SigPoisProcess.contol}
 #' @returns An object of class SigPoisProcess.
 #' @export
-#' @useDynLib SigPoisProcess
+#' @useDynLib SigPoisProcess, .registration = TRUE
 #' @import Rcpp
 #' @import RcppArmadillo
+#' @importFrom magrittr %>%
 SigPoisProcess <- function(gr_Mutations,
                            df_areas,
-                           method = "map",
-                           add_baseline = TRUE,
                            K = 10,
+                           method = "map",
+                           compressType = "sig_cov",
                            prior_params = SigPoisProcess.PriorParams(),
                            controls = SigPoisProcess.controls(),
                            init = SigPoisProcess.init()) {
 
   # Extract the data and the covariates
-  X <- as.data.frame(mcols(gr_Mutations)) %>%
+  X <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
     dplyr::select(where(is.numeric)) %>%
     as.matrix()
 
-  X_totals <- df_areas %>%
-    column_to_rownames(var = "sample") %>%
+  X_total <- df_areas %>%
+    tibble::column_to_rownames(var = "sample") %>%
     dplyr::select(where(is.numeric)) %>%
     as.matrix()
 
   # Extract mutation data
-  Mutations <- as.data.frame(mcols(gr_Mutations)) %>%
-    dplur::select(sample, channel)
-  Mutations$sample <- factor(Mutations$sample, levels = rownames(X_totals))
+  Mutations <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
+    dplyr::select(sample, channel)
+  Mutations$sample <- factor(Mutations$sample, levels = rownames(X_total))
   Mutations$channel <- as.factor(Mutations$channel)
 
   # Add baseline
-  if (add_baseline) {
+  #if (add_baseline) {
     # Pad baseline to the data
-    X <- cbind("baseline" = 1, X)
+  #  X <- cbind("baseline" = 1, X)
     # Load the Genome and get the chromosome length
-    genome <- BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19
-    std_chrs <- paste0("chr", c(1:22, "X", "Y"))
-    chrom_lengths <- seqlengths(genome)[1:24]
-    X_totals <- cbind("baseline" = sum(1 * chrom_lengths), X_totals)
-  }
+    # genome <- BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19
+    # std_chrs <- paste0("chr", c(1:22, "X", "Y"))
+    # chrom_lengths <- GenomeInfoDb::seqlengths(genome)[1:24]
+  #  X_total <- cbind("baseline" = baseline_total, X_total)
+  #}
 
   # Extract channel and sample Id from the mutation list
   if (!is.factor(Mutations$channel)) {
@@ -62,7 +65,7 @@ SigPoisProcess <- function(gr_Mutations,
 
   #----------------------------------------------- Model dimensions
   I <- length(unique(channel_id)) # Number of mutational channels
-  J <- max(sample_id) # Number of patients
+  J <- length(unique(sample_id)) # Number of patients
   L <- ncol(X) # Number of covariates
   N <- nrow(Mutations) # Total number of mutations
 
@@ -72,8 +75,15 @@ SigPoisProcess <- function(gr_Mutations,
   alpha <- prior_params$alpha
   epsilon <- prior_params$epsilon
   if (is.null(prior_params$a0) | is.null(prior_params$b0)) {
-    a0 <- a * J + 1
-    b0 <- epsilon * a * J
+    if (compressType == "sig_cov") {
+      a0 <- a * J + 1
+      b0 <- epsilon * a * J
+    } else if (compressType == "sig") {
+      a0 <- a * J  + 1
+      b0 <- epsilon * a * J
+    } else {
+      stop("compressType must be either 'sig' or 'sig_cov'")
+    }
   } else {
     a0 <- prior_params$a0
     b0 <- prior_params$b0
@@ -123,7 +133,13 @@ SigPoisProcess <- function(gr_Mutations,
   }
   #---- Initial value for the relevance weights
   if(is.null(init$Mu_start)){
-    Mu_start <- matrix(1 / rgamma(K * L, 2 * a * J + 1, epsilon * a * J), nrow = K, ncol = L)
+    if (compressType == "sig_cov") {
+      Mu_start <- matrix(1 / rgamma(K * L, 2 * a * J + 1, epsilon * a * J),
+                         nrow = K, ncol = L)
+    } else if (compressType == "sig") {
+      mu <- 1 / rgamma(K, 2 * a * J  + 1, epsilon * a * J )
+      Mu_start <- matrix(mu)[, rep(1, L)]
+    }
   } else {
     Mu_start <- init$Mu_start
   }
@@ -143,6 +159,7 @@ SigPoisProcess <- function(gr_Mutations,
   #----------------------------------------------- Estimate the model
   # List to append results
   results <- list(cavi = NULL, gibbs = NULL, map = NULL, mle = NULL, method = method)
+
   ######################################################
   # MLE
   ######################################################
@@ -170,6 +187,7 @@ SigPoisProcess <- function(gr_Mutations,
     results$SigPrior <- SigPrior
 
   }
+
   ######################################################
   # MAP
   ######################################################
@@ -178,11 +196,13 @@ SigPoisProcess <- function(gr_Mutations,
     maxiter <- controls$maxiter
     tol <- controls$tol
     merge_move <- controls$merge_move
+    compress_sig_cov <- (compressType == "sig_cov")
     out_map <- compute_SigPoisProcess_MAP(R_start = R_start, Betas_start = Betas_start,
-                                            Mu_start = Mu_start, SigPrior = SigPrior,
-                                            a = a, a0 = a0, b0 = b0, X = X, X_bar = X_bar,
-                                            channel_id = channel_id - 1, sample_id = sample_id - 1,
-                                            maxiter = maxiter, tol = tol, scaled = Betas_scaled, merge_move = merge_move)
+                                          Mu_start = Mu_start, SigPrior = SigPrior,
+                                          a = a, a0 = a0, b0 = b0, X = X, X_bar = X_bar,
+                                          channel_id = channel_id - 1, sample_id = sample_id - 1,
+                                          maxiter = maxiter, tol = tol, scaled = Betas_scaled,
+                                          merge_move = merge_move, compress_sig_cov = compress_sig_cov)
 
     #--- Postprocess results
     Sigs <- out_map$R
@@ -243,7 +263,7 @@ SigPoisProcess <- function(gr_Mutations,
         SIGNS[iter - burnin, , ] <- R
         BETAS[iter - burnin, , , ] <- Betas
         MU[iter - burnin, , ] <- Mu
-        A[iter - burnin] <- a
+        #A[iter - burnin] <- a
       }
     }
     close(pb)
@@ -268,18 +288,28 @@ SigPoisProcess <- function(gr_Mutations,
   }
 
   # Calculate Signature-covariate assignment for each mutation
-  Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
-  Probs <- Sig_Cov_prob$Probs
-  dimnames(Probs)[[2]] <- colnames(Sigs)
-  dimnames(Probs)[[3]] <- dimnames(Loads)[[3]]
-  MaxProbIds <- as.data.frame(Sig_Cov_prob$MaxProbIds) %>%
-    group_by(V1, V2) %>%
-    summarise(Fraction = n()/nrow(Mutations)) %>%
-    as.data.frame()
-  MaxProbIds$V1 <- colnames(Sigs)[MaxProbIds$V1]
-  MaxProbIds$V2 <- dimnames(Loads)[[3]][MaxProbIds$V2]
+  #Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
+  #Probs <- Sig_Cov_prob$Probs
+  #dimnames(Probs)[[2]] <- colnames(Sigs)
+  #dimnames(Probs)[[3]] <- dimnames(Loads)[[3]]
+  #MaxProbIds <- reshape2::melt(apply(Probs, c(2,3), mean))
+  # MaxProbIds <- as.data.frame(Sig_Cov_prob$MaxProbIds) %>%
+  #   dplyr::group_by(V1, V2) %>%
+  #   dplyr::summarise(Fraction = dplyr::n()/nrow(Mutations)) %>%
+  #   as.data.frame()
+  # MaxProbIds$V1 <- colnames(Sigs)[MaxProbIds$V1]
+  # MaxProbIds$V2 <- dimnames(Loads)[[3]][MaxProbIds$V2]Xnorm <- Betas * Xbar
+  Xnorm <- Loads * X_bar
+  for(j in 1:ncol(Loads)){
+    Xnorm[, j, ] <- Xnorm[, j, ]/sum(Xnorm[, j, ])
+  }
+  MaxProbIds <- reshape2::melt(apply(Xnorm > 0.001, c(1,3), sum)/ncol(Loads))  %>%
+    #dplyr::mutate(in_present = value > 0.002) %>%
+    dplyr::group_by(Var1, Var2)# %>%
+    #dplyr::summarise(n = mean(in_present))
+
   colnames(MaxProbIds) <- c("Signature", "Covariate", "Fraction")
-  results$Probs <- Probs
+  #results$Probs <- Probs
   results$AttrSummary <- MaxProbIds
   results$Xbar <- X_bar
 

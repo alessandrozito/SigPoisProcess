@@ -197,15 +197,36 @@ arma::mat Update_Mu(arma::cube &Betas,              // Loadings
                     double a,
                     double a0,
                     double b0,
-                    bool scaled = true){
+                    bool scaled = true,
+                    bool compress_sig_cov = true){
   int J = Betas.n_cols;
+  int p = Betas.n_slices;
   arma::mat Mu_new(Betas.n_rows, Betas.n_slices);
-  if(scaled){
-    arma::cube BetasX = Betas % X_bar;
-    Mu_new = (a * sum(BetasX, 1) + b0)/(a * J + a0 + 1);
+  if(compress_sig_cov) {
+    if(scaled){
+      arma::cube BetasX = Betas % X_bar;
+      Mu_new = (a * sum(BetasX, 1) + b0)/(a * J + a0 + 1);
+    } else {
+      Mu_new = (a * sum(Betas, 1) + b0)/(a * J + a0 + 1);
+    }
   } else {
-    Mu_new = (a * sum(Betas, 1) + b0)/(a * J + a0 + 1);
+    // Compress only the signature globally, not the covariates.
+    if(scaled){
+      arma::cube BetasX = Betas % X_bar;
+      arma::mat aggr = sum(BetasX, 1);
+      arma::mat mus = arma::repmat(sum(aggr, 1), 1, p);
+      //Rcout << mus << "\n";
+      //Rcout << mus.n_elem << "\n";
+      //return mus;
+      //arma::vec mus = (a * sum(BetasX, 1) + b0)/(a * J * p + a0 + 1)
+      Mu_new = (a * mus + b0)/(a * J * p + a0 + 1);
+    } else {
+      arma::mat aggr = sum(Betas, 1);
+      arma::mat mus = arma::repmat(sum(aggr, 1), 1, p);
+      Mu_new = (a * mus + b0)/(a * J * p + a0 + 1);
+    }
   }
+
   return Mu_new;
 }
 
@@ -398,7 +419,8 @@ List compute_SigPoisProcess_MAP(arma::mat R_start,                   // Signatur
                                 double tol = 1e-6,
                                 bool scaled = true,
                                 bool merge_move = true,
-                                double cutoff_merge = 0.9){
+                                double cutoff_merge = 0.9,
+                                bool compress_sig_cov = true){
 
   // Reshape the X matrix suitably
   int K = R_start.n_cols;
@@ -412,7 +434,7 @@ List compute_SigPoisProcess_MAP(arma::mat R_start,                   // Signatur
   arma::mat Mu = Mu_start;
   arma::mat Mu_new = Mu_start;
   double maxdiff = 10.0;
-
+  double lp_old = compute_SigPoisProcess_logPost(Xfield, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled);
   // Run the multiplicative rules
   int R_show = 100;
   //arma::cube Mu_trace(K, L, maxiter/R_show);
@@ -426,6 +448,8 @@ List compute_SigPoisProcess_MAP(arma::mat R_start,                   // Signatur
       double lp = compute_SigPoisProcess_logPost(Xfield, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled);
       logPost_trace = arma::join_vert(logPost_trace, arma::vec({lp}));
       Rprintf("Iteration %i - diff %.10f - logposterior %.5f \n", iter + 1, maxdiff, lp);
+      maxdiff = std::abs(lp/lp_old - 1);
+      lp_old = lp;
     }
 
     // Update R
@@ -433,7 +457,7 @@ List compute_SigPoisProcess_MAP(arma::mat R_start,                   // Signatur
     // Update Betas
     Betas = Update_Betas_MAP(R, Betas, Mu, a, Xfield, X_bar, scaled);
     // Update Mu
-    Mu_new = Update_Mu(Betas, X_bar, a, a0, b0, scaled);
+    Mu_new = Update_Mu(Betas, X_bar, a, a0, b0, scaled, compress_sig_cov);
     // Evaluate the difference on average with relevance weights
     maxdiff = arma::abs(Mu_new/Mu - 1).max();
     Mu = Mu_new;
@@ -441,8 +465,9 @@ List compute_SigPoisProcess_MAP(arma::mat R_start,                   // Signatur
       if(merge_move){
         //Rprintf("Merge signatures");
         merge_similar_signatures(R, Betas, Mu, Xfield, X_bar, a, a0, b0, SigPrior, cutoff_merge, scaled);
+        maxdiff = 10;
       }
-      maxdiff = arma::abs(Mu_new/Mu - 1).max();
+      //maxdiff = arma::abs(Mu_new/Mu - 1).max();
       if(maxdiff < tol) {
         break;
       }

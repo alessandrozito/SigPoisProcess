@@ -1,6 +1,6 @@
 Package: SigPoisProcess
 Type: Package
-Title: Poisson process factorization for mutational signatures analysis
+Title: Poisson process factorization for topographic-dependent mutational signatures analysis
 Version: 0.1.0
 Authors@R: c(
     person(
@@ -14,7 +14,9 @@ Description: More about what it does (maybe more than one line).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Imports: Rcpp, RcppArmadillo, LaplacesDemon, RcppHungarian, patchwork, ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer, GenomicRanges, BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19, CompressiveNMF
+Imports: Rcpp, RcppArmadillo, LaplacesDemon, RcppHungarian, patchwork, ggnewscale,
+         ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer,
+         GenomicRanges, BSgenome, Biostrings,BSgenome.Hsapiens.UCSC.hg19
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: rmarkdown
 VignetteBuilder: knitr

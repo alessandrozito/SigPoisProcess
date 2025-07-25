@@ -2,102 +2,150 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 Update_Phi <- function(Phi, alpha_r, a_beta, b_beta, logX, channel_id, sample_id) {
-    invisible(.Call('_SigPoisProcess_Update_Phi', PACKAGE = 'SigPoisProcess', Phi, alpha_r, a_beta, b_beta, logX, channel_id, sample_id))
+    invisible(.Call(`_SigPoisProcess_Update_Phi`, Phi, alpha_r, a_beta, b_beta, logX, channel_id, sample_id))
 }
 
 Update_alpha_r <- function(alpha_r, Phi, channel_id, sample_id, SigPrior) {
-    invisible(.Call('_SigPoisProcess_Update_alpha_r', PACKAGE = 'SigPoisProcess', alpha_r, Phi, channel_id, sample_id, SigPrior))
+    invisible(.Call(`_SigPoisProcess_Update_alpha_r`, alpha_r, Phi, channel_id, sample_id, SigPrior))
 }
 
 Update_ab_beta <- function(a_beta, b_beta, Phi, a_mu, b_mu, channel_id, sample_id, a, X_bar) {
-    invisible(.Call('_SigPoisProcess_Update_ab_beta', PACKAGE = 'SigPoisProcess', a_beta, b_beta, Phi, a_mu, b_mu, channel_id, sample_id, a, X_bar))
+    invisible(.Call(`_SigPoisProcess_Update_ab_beta`, a_beta, b_beta, Phi, a_mu, b_mu, channel_id, sample_id, a, X_bar))
 }
 
 Update_ab_mu <- function(a_mu, b_mu, a_beta, b_beta, a, a0, b0) {
-    invisible(.Call('_SigPoisProcess_Update_ab_mu', PACKAGE = 'SigPoisProcess', a_mu, b_mu, a_beta, b_beta, a, a0, b0))
+    invisible(.Call(`_SigPoisProcess_Update_ab_mu`, a_mu, b_mu, a_beta, b_beta, a, a0, b0))
 }
 
 InhomogeneousPoissonNMF_CAVI <- function(Phi, alpha_r, a_beta, b_beta, a_mu, b_mu, X, X_bar, channel_id, sample_id, SigPrior, a, a0, b0, maxiter = 200L, tol = 1e-6) {
-    .Call('_SigPoisProcess_InhomogeneousPoissonNMF_CAVI', PACKAGE = 'SigPoisProcess', Phi, alpha_r, a_beta, b_beta, a_mu, b_mu, X, X_bar, channel_id, sample_id, SigPrior, a, a0, b0, maxiter, tol)
+    .Call(`_SigPoisProcess_InhomogeneousPoissonNMF_CAVI`, Phi, alpha_r, a_beta, b_beta, a_mu, b_mu, X, X_bar, channel_id, sample_id, SigPrior, a, a0, b0, maxiter, tol)
 }
 
 build_X_field <- function(X, I, J, channel_id, sample_id) {
-    .Call('_SigPoisProcess_build_X_field', PACKAGE = 'SigPoisProcess', X, I, J, channel_id, sample_id)
+    .Call(`_SigPoisProcess_build_X_field`, X, I, J, channel_id, sample_id)
 }
 
 Update_Signatures_MAP <- function(R, Betas, SigPrior, Xfield) {
-    .Call('_SigPoisProcess_Update_Signatures_MAP', PACKAGE = 'SigPoisProcess', R, Betas, SigPrior, Xfield)
+    .Call(`_SigPoisProcess_Update_Signatures_MAP`, R, Betas, SigPrior, Xfield)
 }
 
 Update_Signatures_MAP2 <- function(R, Betas, SigPrior, X, channel_id, sample_id) {
-    .Call('_SigPoisProcess_Update_Signatures_MAP2', PACKAGE = 'SigPoisProcess', R, Betas, SigPrior, X, channel_id, sample_id)
+    .Call(`_SigPoisProcess_Update_Signatures_MAP2`, R, Betas, SigPrior, X, channel_id, sample_id)
 }
 
 Update_Betas_MAP <- function(R, Betas, Mu, a, Xfield, X_bar, scaled = TRUE) {
-    .Call('_SigPoisProcess_Update_Betas_MAP', PACKAGE = 'SigPoisProcess', R, Betas, Mu, a, Xfield, X_bar, scaled)
+    .Call(`_SigPoisProcess_Update_Betas_MAP`, R, Betas, Mu, a, Xfield, X_bar, scaled)
 }
 
 Update_Betas_MAP2 <- function(R, Betas, Mu, a, X_bar, X, channel_id, sample_id, scaled = TRUE) {
-    .Call('_SigPoisProcess_Update_Betas_MAP2', PACKAGE = 'SigPoisProcess', R, Betas, Mu, a, X_bar, X, channel_id, sample_id, scaled)
+    .Call(`_SigPoisProcess_Update_Betas_MAP2`, R, Betas, Mu, a, X_bar, X, channel_id, sample_id, scaled)
 }
 
-Update_Mu <- function(Betas, X_bar, a, a0, b0, scaled = TRUE) {
-    .Call('_SigPoisProcess_Update_Mu', PACKAGE = 'SigPoisProcess', Betas, X_bar, a, a0, b0, scaled)
+Update_Mu <- function(Betas, X_bar, a, a0, b0, scaled = TRUE, compress_sig_cov = TRUE) {
+    .Call(`_SigPoisProcess_Update_Mu`, Betas, X_bar, a, a0, b0, scaled, compress_sig_cov)
 }
 
 compute_SigPoisProcess_logPost <- function(Xfield, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled = TRUE) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_logPost', PACKAGE = 'SigPoisProcess', Xfield, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled)
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_logPost`, Xfield, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled)
 }
 
 compute_SigPoisProcess_logPost2 <- function(X, channel_id, sample_id, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled = TRUE) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_logPost2', PACKAGE = 'SigPoisProcess', X, channel_id, sample_id, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled)
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_logPost2`, X, channel_id, sample_id, R, Betas, Mu, X_bar, a, a0, b0, SigPrior, scaled)
 }
 
 merge_similar_signatures <- function(R, Betas, Mu, Xfield, X_bar, a, a0, b0, SigPrior, cutoff_merge = 0.9, scaled = TRUE) {
-    invisible(.Call('_SigPoisProcess_merge_similar_signatures', PACKAGE = 'SigPoisProcess', R, Betas, Mu, Xfield, X_bar, a, a0, b0, SigPrior, cutoff_merge, scaled))
+    invisible(.Call(`_SigPoisProcess_merge_similar_signatures`, R, Betas, Mu, Xfield, X_bar, a, a0, b0, SigPrior, cutoff_merge, scaled))
 }
 
-compute_SigPoisProcess_MAP <- function(R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter = 1e6L, tol = 1e-6, scaled = TRUE, merge_move = TRUE, cutoff_merge = 0.9) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_MAP', PACKAGE = 'SigPoisProcess', R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled, merge_move, cutoff_merge)
+compute_SigPoisProcess_MAP <- function(R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter = 1e6L, tol = 1e-6, scaled = TRUE, merge_move = TRUE, cutoff_merge = 0.9, compress_sig_cov = TRUE) {
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_MAP`, R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled, merge_move, cutoff_merge, compress_sig_cov)
 }
 
 compute_SigPoisProcess_MAP_Nest <- function(R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter = 1e6L, tol = 1e-6, scaled = TRUE) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_MAP_Nest', PACKAGE = 'SigPoisProcess', R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled)
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_MAP_Nest`, R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled)
 }
 
 Update_Signatures_MLE <- function(R, Betas, Xfield) {
-    .Call('_SigPoisProcess_Update_Signatures_MLE', PACKAGE = 'SigPoisProcess', R, Betas, Xfield)
+    .Call(`_SigPoisProcess_Update_Signatures_MLE`, R, Betas, Xfield)
 }
 
 Update_Betas_MLE <- function(R, Betas, Xfield, X_bar) {
-    .Call('_SigPoisProcess_Update_Betas_MLE', PACKAGE = 'SigPoisProcess', R, Betas, Xfield, X_bar)
+    .Call(`_SigPoisProcess_Update_Betas_MLE`, R, Betas, Xfield, X_bar)
 }
 
 compute_SigPoisProcess_logLik <- function(Xfield, R, Betas, X_bar) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_logLik', PACKAGE = 'SigPoisProcess', Xfield, R, Betas, X_bar)
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_logLik`, Xfield, R, Betas, X_bar)
 }
 
 compute_SigPoisProcess_MLE <- function(R_start, Betas_start, X, X_bar, channel_id, sample_id, maxiter = 1e6L, tol = 1e-6) {
-    .Call('_SigPoisProcess_compute_SigPoisProcess_MLE', PACKAGE = 'SigPoisProcess', R_start, Betas_start, X, X_bar, channel_id, sample_id, maxiter, tol)
+    .Call(`_SigPoisProcess_compute_SigPoisProcess_MLE`, R_start, Betas_start, X, X_bar, channel_id, sample_id, maxiter, tol)
+}
+
+build_X_field2 <- function(X, I, J, channel_id, sample_id) {
+    .Call(`_SigPoisProcess_build_X_field2`, X, I, J, channel_id, sample_id)
+}
+
+compute_expXtB_field <- function(X, I, J, channel_id, sample_id, Betas) {
+    .Call(`_SigPoisProcess_compute_expXtB_field`, X, I, J, channel_id, sample_id, Betas)
+}
+
+Update_Signatures_MLE_loglinear2 <- function(R, Theta, Betas, X, channel_id, sample_id) {
+    .Call(`_SigPoisProcess_Update_Signatures_MLE_loglinear2`, R, Theta, Betas, X, channel_id, sample_id)
+}
+
+Update_Theta_MLE_loglinear <- function(R, Theta, Betas, X, channel_id, sample_id, Xtotal, Bins) {
+    .Call(`_SigPoisProcess_Update_Theta_MLE_loglinear`, R, Theta, Betas, X, channel_id, sample_id, Xtotal, Bins)
+}
+
+Update_Theta_Betas_loglinear <- function(R, Theta, Betas_start, X, channel_id, sample_id, Xtotal, Bins, iter = 30L) {
+    .Call(`_SigPoisProcess_Update_Theta_Betas_loglinear`, R, Theta, Betas_start, X, channel_id, sample_id, Xtotal, Bins, iter)
+}
+
+PPF_loglinear <- function(R_start, Theta_start, Betas_start, Mu_start, X, channel_id, sample_id, Xtotal, Bins, SigPrior, a, a0, b0, epsilon, method = "mle", update_Sigs = TRUE, maxiter = 1000L, tol = 1e-5) {
+    .Call(`_SigPoisProcess_PPF_loglinear`, R_start, Theta_start, Betas_start, Mu_start, X, channel_id, sample_id, Xtotal, Bins, SigPrior, a, a0, b0, epsilon, method, update_Sigs, maxiter, tol)
+}
+
+sample_Categorical <- function(Probs) {
+    .Call(`_SigPoisProcess_sample_Categorical`, Probs)
+}
+
+sample_R <- function(R, W, SigPrior, channel_id) {
+    .Call(`_SigPoisProcess_sample_R`, R, W, SigPrior, channel_id)
+}
+
+sample_Theta <- function(Theta, Betas, SignalTrack, bin_weight, W, Mu, a, sample_id) {
+    .Call(`_SigPoisProcess_sample_Theta`, Theta, Betas, SignalTrack, bin_weight, W, Mu, a, sample_id)
+}
+
+sample_Mu <- function(Theta, Betas, a, a0, b0, Ttot) {
+    .Call(`_SigPoisProcess_sample_Mu`, Theta, Betas, a, a0, b0, Ttot)
+}
+
+sample_Betas <- function(W_k, X, SignalTrack, bin_weight, Mu_k, Theta_sum_k) {
+    .Call(`_SigPoisProcess_sample_Betas`, W_k, X, SignalTrack, bin_weight, Mu_k, Theta_sum_k)
+}
+
+.PoissonProcess_optim <- function(R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method = "mle", a = 1.1, a0 = 2.5, b0 = 1.5, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, n_iter_betas = 2L, maxiter = 20L, tol = 1e-5) {
+    .Call(`_SigPoisProcess_PoissonProcess_optim`, R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method, a, a0, b0, update_R, update_Theta, update_Betas, n_iter_betas, maxiter, tol)
 }
 
 eval_logPosterior <- function(X, R, Theta, Mu, a, a0, b0, SigPrior) {
-    .Call('_SigPoisProcess_eval_logPosterior', PACKAGE = 'SigPoisProcess', X, R, Theta, Mu, a, a0, b0, SigPrior)
+    .Call(`_SigPoisProcess_eval_logPosterior`, X, R, Theta, Mu, a, a0, b0, SigPrior)
 }
 
 compute_CompressiveNMF_MAP <- function(X, R_start, Theta_start, Mu_start, SigPrior, a0, b0, a, maxiter, tol, use_logpost_for_convergence = FALSE) {
-    .Call('_SigPoisProcess_compute_CompressiveNMF_MAP', PACKAGE = 'SigPoisProcess', X, R_start, Theta_start, Mu_start, SigPrior, a0, b0, a, maxiter, tol, use_logpost_for_convergence)
+    .Call(`_SigPoisProcess_compute_CompressiveNMF_MAP`, X, R_start, Theta_start, Mu_start, SigPrior, a0, b0, a, maxiter, tol, use_logpost_for_convergence)
 }
 
 sample_table_cpp <- function(tab) {
-    .Call('_SigPoisProcess_sample_table_cpp', PACKAGE = 'SigPoisProcess', tab)
+    .Call(`_SigPoisProcess_sample_table_cpp`, tab)
 }
 
 sample_Counts_cpp <- function(X, R, Betas, channel_Id, sample_Id) {
-    .Call('_SigPoisProcess_sample_Counts_cpp', PACKAGE = 'SigPoisProcess', X, R, Betas, channel_Id, sample_Id)
+    .Call(`_SigPoisProcess_sample_Counts_cpp`, X, R, Betas, channel_Id, sample_Id)
 }
 
 calculate_Sig_covariate_prob <- function(X, R, Betas, channel_id, sample_id) {
-    .Call('_SigPoisProcess_calculate_Sig_covariate_prob', PACKAGE = 'SigPoisProcess', X, R, Betas, channel_id, sample_id)
+    .Call(`_SigPoisProcess_calculate_Sig_covariate_prob`, X, R, Betas, channel_id, sample_id)
 }
 

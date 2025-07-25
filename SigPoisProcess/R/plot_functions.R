@@ -1,5 +1,7 @@
 #' @export
-plot_avgLoads <- function(Betas, Xbar, AttrSummary, cutoff_excluded = 0.002){
+#' @import ggplot2
+plot_avgLoads <- function(Betas, Xbar, AttrSummary, cutoff_excluded = 0.005){
+
   # Average values for Beta
   AvgBeta <- apply(Betas * Xbar, c(1,3), mean)
   rownames(AvgBeta) <- rownames(Betas)
@@ -7,44 +9,48 @@ plot_avgLoads <- function(Betas, Xbar, AttrSummary, cutoff_excluded = 0.002){
   colnames(df) <- c("Signature", "Covariate", "Value")
 
   df <- df %>%
-    mutate(
+    dplyr::mutate(
       Covariate = factor(Covariate, levels=unique(Covariate)),
       AltCol = ifelse((as.numeric(Covariate) %% 2) == 0, "gray93", "gray97")) %>%
-    left_join(AttrSummary, by = c("Signature", "Covariate")) %>%
-    mutate(Value = dplyr::case_when(Value < cutoff_excluded ~ NA_real_,
-                                    TRUE ~ Value))
+    dplyr::left_join(AttrSummary, by = c("Signature", "Covariate")) %>%
+    dplyr::mutate(Value = dplyr::case_when(Value < cutoff_excluded ~ NA_real_,
+                                    TRUE ~ Value),
+           Fraction = dplyr::case_when(is.na(Value) ~ NA_real_,
+                                       TRUE ~ Fraction))
   df$Signature <- as.factor(df$Signature)
   df$Covariate <- as.factor(df$Covariate)
 
   p <- ggplot2::ggplot(df, aes(x = Covariate, y = Signature)) +
-    geom_tile(aes(fill = AltCol), color = "white", width = 0.95, height = 0.95) +
-    scale_fill_manual(
+    ggplot2::geom_tile(aes(fill = AltCol), color = "white", width = 0.95, height = 0.95) +
+    ggplot2::scale_fill_manual(
       values = c("gray93" = "gray93", "gray97" = "gray97"),
       guide = "none"
     ) +
     ggnewscale::new_scale_fill() +
-    geom_point(aes(fill = Value, size = Fraction),
+    ggplot2::geom_point(aes(fill = Value, size = Fraction),
                shape = 21, color = "grey30", stroke = 0.2,
                na.rm = TRUE) +
-    scale_fill_gradientn(name = "Average\nloading",
+    ggplot2::scale_fill_gradientn(name = "Average\nloading",
                          colours =c("#F6C866", "#F2AB67", "#EF8F6B", "#ED7470", "#BF6E97",
                                     "#926AC2", "#6667EE", "#4959C7", "#2D4A9F", "#173C78")) +
-    scale_y_discrete(limits = rev(levels(df$Signature))) +
-    scale_size_continuous(name = "Fraction \nof total\nmutations")+
-    scale_x_discrete(position = "top") +
-    theme_minimal() +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0),
-      axis.title = element_blank(),
+    ggplot2::scale_y_discrete(limits = rev(levels(df$Signature))) +
+    ggplot2::scale_size_continuous(name = "Fraction \nof patients", limits = c(0.01, 1))+
+    ggplot2::scale_x_discrete(position = "top") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 0, vjust = 0),
+      axis.title = ggplot2::element_blank(),
       #axis.text.y = element_blank(),
-      plot.margin = margin(0, 0, 0, 0),
-      axis.ticks.x = element_blank())
+      plot.margin = ggplot2::margin(0, 0, 0, 0),
+      axis.ticks.x = ggplot2::element_blank())
 
   return(p)
 }
 
 
 #' @export
+#' @import patchwork
+#' @import ggplot2
 plot.SigPoisProcess <- function(object){
   p_sig <- plot_96SBSsig(object$Signatures, remove_strip_text_y = TRUE)
   p_Loads <- plot_avgLoads(object$Betas, object$Xbar, object$AttrSummary)
@@ -67,7 +73,7 @@ plot_96SBSsig <- function(signatures,
                   Mutation = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
                                    function(x) paste0(x[c(3,4,5)], collapse = "")),
                   Mutation = as.factor(Mutation)) %>%
-    gather(key = "Sig", value = "Prob", -Channel, -Triplet, -Mutation)
+    tidyr::gather(key = "Sig", value = "Prob", -Channel, -Triplet, -Mutation)
 
   if(!is.null(lowCI) & !is.null(highCI)){
     df_plot <- df_plot %>%
@@ -93,7 +99,7 @@ plot_96SBSsig <- function(signatures,
 
   p_list <- vector(mode = "list", length = ncol(signatures))
   for(j in 1:length(p_list)){
-    p <-   ggplot(df_plot %>% filter(Sig == colnames(signatures)[j]),
+    p <-   ggplot2::ggplot(df_plot %>% dplyr::filter(Sig == colnames(signatures)[j]),
                   aes(x = Triplet, y = Prob, fill = Mutation))+
       geom_bar(stat = "identity", width = 0.5) +
       #geom_hline(yintercept = -0.001)+
@@ -105,7 +111,7 @@ plot_96SBSsig <- function(signatures,
             axis.title = element_blank(),
             axis.ticks = element_blank(),
             axis.text.y = element_blank(),
-            plot.margin = margin(0, 0, 0, 0),
+            plot.margin = margin(1, 1, 1, 1),
             #axis.text.x = element_text(angle = 90, color = "gray35",
             #                          vjust = .5, size = 6.5, margin = margin(t = -4)),
             axis.text.x = element_blank(),

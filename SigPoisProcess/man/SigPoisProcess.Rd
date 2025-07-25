@@ -7,9 +7,9 @@
 SigPoisProcess(
   gr_Mutations,
   df_areas,
-  method = "map",
-  add_baseline = TRUE,
   K = 10,
+  method = "map",
+  compressType = "sig_cov",
   prior_params = SigPoisProcess.PriorParams(),
   controls = SigPoisProcess.controls(),
   init = SigPoisProcess.init()
@@ -20,13 +20,17 @@ SigPoisProcess(
 
 \item{df_areas}{data.frame containing the total areas of each covariate for each sample}
 
+\item{K}{Upper bound to the number of signatures expected in the data}
+
 \item{method}{Which method to use for the estimation. Available options are 'mle', 'map' and 'gibbs'}
 
-\item{add_baseline}{Wheter to add a baseline equal to 1 to the whole model.}
+\item{compressType}{Type of penalty for the automatic selection of priors using compressive hyperpriors. Available type are 'sig' and 'sig_cov'}
 
 \item{prior_params}{The hyperparameters of the prior.}
 
 \item{controls}{Control parameters for each method. See \code{SigPoisProcess.contol}}
+
+\item{init}{Initialization parameters. See \code{SigPoisProcess.init}}
 }
 \value{
 An object of class SigPoisProcess.

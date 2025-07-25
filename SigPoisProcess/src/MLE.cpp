@@ -135,9 +135,10 @@ List compute_SigPoisProcess_MLE(arma::mat R_start,                   // Signatur
   // Initialize quantities
   arma::mat R = R_start;
   arma::cube Betas = Betas_start;
+  arma::cube Betas_new = Betas_start;
   arma::mat R_new = R_start;
   double maxdiff = 10.0;
-
+  double logLik_old = compute_SigPoisProcess_logLik(Xfield, R, Betas, X_bar);
   // Run the multiplicative rules
   int R_show = 100;
   //arma::cube Mu_trace(K, L, maxiter/R_show);
@@ -151,15 +152,19 @@ List compute_SigPoisProcess_MLE(arma::mat R_start,                   // Signatur
       double logLik = compute_SigPoisProcess_logLik(Xfield, R, Betas, X_bar);
       logLik_trace = arma::join_vert(logLik_trace, arma::vec({logLik}));
       Rprintf("Iteration %i - diff %.10f - loglikelihood %.5f \n", iter + 1, maxdiff, logLik);
+      maxdiff = std::abs(logLik/logLik_old - 1);
+      logLik_old = logLik;
     }
 
     // Update R
-    R_new = Update_Signatures_MLE(R, Betas, Xfield);
+    //R_new = Update_Signatures_MLE(R, Betas, Xfield);
+    R = Update_Signatures_MLE(R, Betas, Xfield);
     // Update Betas
     Betas = Update_Betas_MLE(R, Betas, Xfield, X_bar);
+    //Betas_new = Update_Betas_MLE(R, Betas, Xfield, X_bar);
     // Evaluate the difference on average in the signature profile
-    maxdiff = arma::abs(R_new/R - 1).max();
-    R = R_new;
+    //maxdiff = arma::abs(Betas_new/Betas - 1).max();
+    //R = R_new;
     //Betas = Betas_new;
     if(iter >= maxiter || maxdiff < tol) {
       break;

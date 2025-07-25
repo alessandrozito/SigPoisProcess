@@ -61,17 +61,57 @@ estimateTotalCounts.SigPoisProcess <- function(object, ...){
 }
 
 #' @export
-getTotalMutations <- function(gr_Mutations){
-  Mutations <- as.data.frame(mcols(gr_Mutations)) %>%
-    dplur::select(sample, channel)
-  Mutations$sample <- factor(Mutations$sample, levels = rownames(X_totals))
-  Mutations$channel <- as.factor(Mutations$channel)
+getTotalMutations <- function(gr_Mutations, df_areas = NULL){
+  Mutations <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
+    dplyr::select(sample, channel)
+  if(!is.null(df_areas)){
+    Mutations$sample <- factor(Mutations$sample, levels = df_areas$sample)
+  }
+  #Mutations$channel <- as.factor(Mutations$channel)
   X_all <- table(Mutations$channel, Mutations$sample)
   matrix(X_all, nrow = nrow(X_all), dimnames = dimnames(X_all))
 }
 
+#' @export
+compute_SignatureCovariate_probs <- function(object, gr_Mutations) {
 
+  Mutations <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
+    dplyr::select(sample, channel)
+  Mutations$sample <- factor(Mutations$sample, levels = colnames(object$Betas))
+  Mutations$channel <- as.factor(Mutations$channel)
+  channel_id <- as.numeric(Mutations$channel)
+  sample_id <- as.numeric(Mutations$sample)
 
+  Sigs <- object$Signatures
+  Loads <- object$Betas
+  X <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
+    dplyr::select(where(is.numeric)) %>%
+    as.matrix()
+  Sig_Cov_prob <- calculate_Sig_covariate_prob(X, Sigs, Loads, channel_id - 1, sample_id - 1)
+  Probs <- Sig_Cov_prob$Probs
+
+  dimnames(Probs)[[1]] <- paste0(gr_Mutations$sample, "-",  as.data.frame(granges(gr_Mutations))$seqnames,
+                                 ":", start(gr_Mutations), "-", gr_Mutations$channel)
+  dimnames(Probs)[[2]] <- colnames(Sigs)
+  dimnames(Probs)[[3]] <- dimnames(Loads)[[3]]
+
+  return(Probs)
+}
+
+#' Pipe operator
+#'
+#' See \code{magrittr::\link[magrittr:pipe]{\%>\%}} for details.
+#'
+#' @name %>%
+#' @rdname pipe
+#' @keywords internal
+#' @export
+#' @importFrom magrittr %>%
+#' @usage lhs \%>\% rhs
+#' @param lhs A value or the magrittr placeholder.
+#' @param rhs A function call using the magrittr semantics.
+#' @return The result of calling `rhs(lhs)`.
+NULL
 
 
 

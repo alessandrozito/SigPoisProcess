@@ -183,8 +183,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // Update_Mu
-arma::mat Update_Mu(arma::cube& Betas, const arma::cube& X_bar, double a, double a0, double b0, bool scaled);
-RcppExport SEXP _SigPoisProcess_Update_Mu(SEXP BetasSEXP, SEXP X_barSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP scaledSEXP) {
+arma::mat Update_Mu(arma::cube& Betas, const arma::cube& X_bar, double a, double a0, double b0, bool scaled, bool compress_sig_cov);
+RcppExport SEXP _SigPoisProcess_Update_Mu(SEXP BetasSEXP, SEXP X_barSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP scaledSEXP, SEXP compress_sig_covSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -194,7 +194,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type a0(a0SEXP);
     Rcpp::traits::input_parameter< double >::type b0(b0SEXP);
     Rcpp::traits::input_parameter< bool >::type scaled(scaledSEXP);
-    rcpp_result_gen = Rcpp::wrap(Update_Mu(Betas, X_bar, a, a0, b0, scaled));
+    Rcpp::traits::input_parameter< bool >::type compress_sig_cov(compress_sig_covSEXP);
+    rcpp_result_gen = Rcpp::wrap(Update_Mu(Betas, X_bar, a, a0, b0, scaled, compress_sig_cov));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -261,8 +262,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // compute_SigPoisProcess_MAP
-List compute_SigPoisProcess_MAP(arma::mat R_start, arma::cube Betas_start, arma::mat Mu_start, arma::mat& SigPrior, double a, double a0, double b0, arma::mat& X, const arma::cube& X_bar, arma::uvec channel_id, arma::uvec sample_id, int maxiter, double tol, bool scaled, bool merge_move, double cutoff_merge);
-RcppExport SEXP _SigPoisProcess_compute_SigPoisProcess_MAP(SEXP R_startSEXP, SEXP Betas_startSEXP, SEXP Mu_startSEXP, SEXP SigPriorSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP XSEXP, SEXP X_barSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP maxiterSEXP, SEXP tolSEXP, SEXP scaledSEXP, SEXP merge_moveSEXP, SEXP cutoff_mergeSEXP) {
+List compute_SigPoisProcess_MAP(arma::mat R_start, arma::cube Betas_start, arma::mat Mu_start, arma::mat& SigPrior, double a, double a0, double b0, arma::mat& X, const arma::cube& X_bar, arma::uvec channel_id, arma::uvec sample_id, int maxiter, double tol, bool scaled, bool merge_move, double cutoff_merge, bool compress_sig_cov);
+RcppExport SEXP _SigPoisProcess_compute_SigPoisProcess_MAP(SEXP R_startSEXP, SEXP Betas_startSEXP, SEXP Mu_startSEXP, SEXP SigPriorSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP XSEXP, SEXP X_barSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP maxiterSEXP, SEXP tolSEXP, SEXP scaledSEXP, SEXP merge_moveSEXP, SEXP cutoff_mergeSEXP, SEXP compress_sig_covSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -282,7 +283,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type scaled(scaledSEXP);
     Rcpp::traits::input_parameter< bool >::type merge_move(merge_moveSEXP);
     Rcpp::traits::input_parameter< double >::type cutoff_merge(cutoff_mergeSEXP);
-    rcpp_result_gen = Rcpp::wrap(compute_SigPoisProcess_MAP(R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled, merge_move, cutoff_merge));
+    Rcpp::traits::input_parameter< bool >::type compress_sig_cov(compress_sig_covSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute_SigPoisProcess_MAP(R_start, Betas_start, Mu_start, SigPrior, a, a0, b0, X, X_bar, channel_id, sample_id, maxiter, tol, scaled, merge_move, cutoff_merge, compress_sig_cov));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -366,6 +368,222 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     rcpp_result_gen = Rcpp::wrap(compute_SigPoisProcess_MLE(R_start, Betas_start, X, X_bar, channel_id, sample_id, maxiter, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_X_field2
+arma::field<arma::mat> build_X_field2(const arma::mat& X, arma::uword I, arma::uword J, arma::uvec channel_id, arma::uvec sample_id);
+RcppExport SEXP _SigPoisProcess_build_X_field2(SEXP XSEXP, SEXP ISEXP, SEXP JSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type I(ISEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type J(JSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_X_field2(X, I, J, channel_id, sample_id));
+    return rcpp_result_gen;
+END_RCPP
+}
+// compute_expXtB_field
+arma::field<arma::mat> compute_expXtB_field(const arma::mat& X, arma::uword I, arma::uword J, arma::uvec channel_id, arma::uvec sample_id, arma::mat& Betas);
+RcppExport SEXP _SigPoisProcess_compute_expXtB_field(SEXP XSEXP, SEXP ISEXP, SEXP JSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP BetasSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type I(ISEXP);
+    Rcpp::traits::input_parameter< arma::uword >::type J(JSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas(BetasSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute_expXtB_field(X, I, J, channel_id, sample_id, Betas));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Update_Signatures_MLE_loglinear2
+arma::mat Update_Signatures_MLE_loglinear2(arma::mat& R, arma::mat& Theta, arma::mat& Betas, arma::mat X, arma::uvec channel_id, arma::uvec sample_id);
+RcppExport SEXP _SigPoisProcess_Update_Signatures_MLE_loglinear2(SEXP RSEXP, SEXP ThetaSEXP, SEXP BetasSEXP, SEXP XSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta(ThetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas(BetasSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(Update_Signatures_MLE_loglinear2(R, Theta, Betas, X, channel_id, sample_id));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Update_Theta_MLE_loglinear
+arma::mat Update_Theta_MLE_loglinear(arma::mat& R, arma::mat& Theta, arma::mat& Betas, arma::mat& X, arma::uvec channel_id, arma::uvec sample_id, arma::cube& Xtotal, arma::mat& Bins);
+RcppExport SEXP _SigPoisProcess_Update_Theta_MLE_loglinear(SEXP RSEXP, SEXP ThetaSEXP, SEXP BetasSEXP, SEXP XSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP XtotalSEXP, SEXP BinsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta(ThetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas(BetasSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    Rcpp::traits::input_parameter< arma::cube& >::type Xtotal(XtotalSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Bins(BinsSEXP);
+    rcpp_result_gen = Rcpp::wrap(Update_Theta_MLE_loglinear(R, Theta, Betas, X, channel_id, sample_id, Xtotal, Bins));
+    return rcpp_result_gen;
+END_RCPP
+}
+// Update_Theta_Betas_loglinear
+arma::mat Update_Theta_Betas_loglinear(arma::mat& R, arma::mat& Theta, arma::mat Betas_start, arma::mat& X, arma::uvec channel_id, arma::uvec sample_id, arma::cube& Xtotal, arma::mat& Bins, int iter);
+RcppExport SEXP _SigPoisProcess_Update_Theta_Betas_loglinear(SEXP RSEXP, SEXP ThetaSEXP, SEXP Betas_startSEXP, SEXP XSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP XtotalSEXP, SEXP BinsSEXP, SEXP iterSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta(ThetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Betas_start(Betas_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    Rcpp::traits::input_parameter< arma::cube& >::type Xtotal(XtotalSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Bins(BinsSEXP);
+    Rcpp::traits::input_parameter< int >::type iter(iterSEXP);
+    rcpp_result_gen = Rcpp::wrap(Update_Theta_Betas_loglinear(R, Theta, Betas_start, X, channel_id, sample_id, Xtotal, Bins, iter));
+    return rcpp_result_gen;
+END_RCPP
+}
+// PPF_loglinear
+List PPF_loglinear(arma::mat& R_start, arma::mat& Theta_start, arma::mat& Betas_start, arma::vec& Mu_start, arma::mat& X, arma::uvec channel_id, arma::uvec sample_id, arma::cube& Xtotal, arma::mat& Bins, arma::mat& SigPrior, double a, double a0, double b0, double epsilon, std::string method, bool update_Sigs, int maxiter, double tol);
+RcppExport SEXP _SigPoisProcess_PPF_loglinear(SEXP R_startSEXP, SEXP Theta_startSEXP, SEXP Betas_startSEXP, SEXP Mu_startSEXP, SEXP XSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP XtotalSEXP, SEXP BinsSEXP, SEXP SigPriorSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP epsilonSEXP, SEXP methodSEXP, SEXP update_SigsSEXP, SEXP maxiterSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R_start(R_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta_start(Theta_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas_start(Betas_startSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type Mu_start(Mu_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    Rcpp::traits::input_parameter< arma::cube& >::type Xtotal(XtotalSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Bins(BinsSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type SigPrior(SigPriorSEXP);
+    Rcpp::traits::input_parameter< double >::type a(aSEXP);
+    Rcpp::traits::input_parameter< double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< double >::type epsilon(epsilonSEXP);
+    Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< bool >::type update_Sigs(update_SigsSEXP);
+    Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(PPF_loglinear(R_start, Theta_start, Betas_start, Mu_start, X, channel_id, sample_id, Xtotal, Bins, SigPrior, a, a0, b0, epsilon, method, update_Sigs, maxiter, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_Categorical
+arma::imat sample_Categorical(arma::mat& Probs);
+RcppExport SEXP _SigPoisProcess_sample_Categorical(SEXP ProbsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type Probs(ProbsSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_Categorical(Probs));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_R
+arma::mat sample_R(arma::mat& R, arma::mat& W, arma::mat& SigPrior, arma::uvec channel_id);
+RcppExport SEXP _SigPoisProcess_sample_R(SEXP RSEXP, SEXP WSEXP, SEXP SigPriorSEXP, SEXP channel_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R(RSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type W(WSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type SigPrior(SigPriorSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_R(R, W, SigPrior, channel_id));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_Theta
+arma::mat sample_Theta(arma::mat& Theta, arma::mat& Betas, arma::mat& SignalTrack, arma::vec& bin_weight, arma::mat W, arma::rowvec Mu, double a, arma::uvec sample_id);
+RcppExport SEXP _SigPoisProcess_sample_Theta(SEXP ThetaSEXP, SEXP BetasSEXP, SEXP SignalTrackSEXP, SEXP bin_weightSEXP, SEXP WSEXP, SEXP MuSEXP, SEXP aSEXP, SEXP sample_idSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta(ThetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas(BetasSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type SignalTrack(SignalTrackSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type bin_weight(bin_weightSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type W(WSEXP);
+    Rcpp::traits::input_parameter< arma::rowvec >::type Mu(MuSEXP);
+    Rcpp::traits::input_parameter< double >::type a(aSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_Theta(Theta, Betas, SignalTrack, bin_weight, W, Mu, a, sample_id));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_Mu
+arma::mat sample_Mu(arma::mat& Theta, arma::mat& Betas, double a, double a0, double b0, double Ttot);
+RcppExport SEXP _SigPoisProcess_sample_Mu(SEXP ThetaSEXP, SEXP BetasSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP TtotSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta(ThetaSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas(BetasSEXP);
+    Rcpp::traits::input_parameter< double >::type a(aSEXP);
+    Rcpp::traits::input_parameter< double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< double >::type Ttot(TtotSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_Mu(Theta, Betas, a, a0, b0, Ttot));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sample_Betas
+arma::vec sample_Betas(arma::vec W_k, arma::mat X, arma::mat SignalTrack, arma::vec bin_weight, double Mu_k, double Theta_sum_k);
+RcppExport SEXP _SigPoisProcess_sample_Betas(SEXP W_kSEXP, SEXP XSEXP, SEXP SignalTrackSEXP, SEXP bin_weightSEXP, SEXP Mu_kSEXP, SEXP Theta_sum_kSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type W_k(W_kSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type SignalTrack(SignalTrackSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type bin_weight(bin_weightSEXP);
+    Rcpp::traits::input_parameter< double >::type Mu_k(Mu_kSEXP);
+    Rcpp::traits::input_parameter< double >::type Theta_sum_k(Theta_sum_kSEXP);
+    rcpp_result_gen = Rcpp::wrap(sample_Betas(W_k, X, SignalTrack, bin_weight, Mu_k, Theta_sum_k));
+    return rcpp_result_gen;
+END_RCPP
+}
+// PoissonProcess_optim
+List PoissonProcess_optim(arma::mat& R_start, arma::mat& Theta_start, arma::mat& Betas_start, arma::mat& X, arma::mat& SignalTrack, arma::vec& bin_weight, arma::uvec channel_id, arma::uvec sample_id, arma::mat SigPrior, std::string method, double a, double a0, double b0, bool update_R, bool update_Theta, bool update_Betas, int n_iter_betas, int maxiter, double tol);
+RcppExport SEXP _SigPoisProcess_PoissonProcess_optim(SEXP R_startSEXP, SEXP Theta_startSEXP, SEXP Betas_startSEXP, SEXP XSEXP, SEXP SignalTrackSEXP, SEXP bin_weightSEXP, SEXP channel_idSEXP, SEXP sample_idSEXP, SEXP SigPriorSEXP, SEXP methodSEXP, SEXP aSEXP, SEXP a0SEXP, SEXP b0SEXP, SEXP update_RSEXP, SEXP update_ThetaSEXP, SEXP update_BetasSEXP, SEXP n_iter_betasSEXP, SEXP maxiterSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type R_start(R_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Theta_start(Theta_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type Betas_start(Betas_startSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type SignalTrack(SignalTrackSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type bin_weight(bin_weightSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type channel_id(channel_idSEXP);
+    Rcpp::traits::input_parameter< arma::uvec >::type sample_id(sample_idSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type SigPrior(SigPriorSEXP);
+    Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< double >::type a(aSEXP);
+    Rcpp::traits::input_parameter< double >::type a0(a0SEXP);
+    Rcpp::traits::input_parameter< double >::type b0(b0SEXP);
+    Rcpp::traits::input_parameter< bool >::type update_R(update_RSEXP);
+    Rcpp::traits::input_parameter< bool >::type update_Theta(update_ThetaSEXP);
+    Rcpp::traits::input_parameter< bool >::type update_Betas(update_BetasSEXP);
+    Rcpp::traits::input_parameter< int >::type n_iter_betas(n_iter_betasSEXP);
+    Rcpp::traits::input_parameter< int >::type maxiter(maxiterSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(PoissonProcess_optim(R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method, a, a0, b0, update_R, update_Theta, update_Betas, n_iter_betas, maxiter, tol));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -461,16 +679,28 @@ static const R_CallMethodDef CallEntries[] = {
     {"_SigPoisProcess_Update_Signatures_MAP2", (DL_FUNC) &_SigPoisProcess_Update_Signatures_MAP2, 6},
     {"_SigPoisProcess_Update_Betas_MAP", (DL_FUNC) &_SigPoisProcess_Update_Betas_MAP, 7},
     {"_SigPoisProcess_Update_Betas_MAP2", (DL_FUNC) &_SigPoisProcess_Update_Betas_MAP2, 9},
-    {"_SigPoisProcess_Update_Mu", (DL_FUNC) &_SigPoisProcess_Update_Mu, 6},
+    {"_SigPoisProcess_Update_Mu", (DL_FUNC) &_SigPoisProcess_Update_Mu, 7},
     {"_SigPoisProcess_compute_SigPoisProcess_logPost", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_logPost, 10},
     {"_SigPoisProcess_compute_SigPoisProcess_logPost2", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_logPost2, 12},
     {"_SigPoisProcess_merge_similar_signatures", (DL_FUNC) &_SigPoisProcess_merge_similar_signatures, 11},
-    {"_SigPoisProcess_compute_SigPoisProcess_MAP", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_MAP, 16},
+    {"_SigPoisProcess_compute_SigPoisProcess_MAP", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_MAP, 17},
     {"_SigPoisProcess_compute_SigPoisProcess_MAP_Nest", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_MAP_Nest, 14},
     {"_SigPoisProcess_Update_Signatures_MLE", (DL_FUNC) &_SigPoisProcess_Update_Signatures_MLE, 3},
     {"_SigPoisProcess_Update_Betas_MLE", (DL_FUNC) &_SigPoisProcess_Update_Betas_MLE, 4},
     {"_SigPoisProcess_compute_SigPoisProcess_logLik", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_logLik, 4},
     {"_SigPoisProcess_compute_SigPoisProcess_MLE", (DL_FUNC) &_SigPoisProcess_compute_SigPoisProcess_MLE, 8},
+    {"_SigPoisProcess_build_X_field2", (DL_FUNC) &_SigPoisProcess_build_X_field2, 5},
+    {"_SigPoisProcess_compute_expXtB_field", (DL_FUNC) &_SigPoisProcess_compute_expXtB_field, 6},
+    {"_SigPoisProcess_Update_Signatures_MLE_loglinear2", (DL_FUNC) &_SigPoisProcess_Update_Signatures_MLE_loglinear2, 6},
+    {"_SigPoisProcess_Update_Theta_MLE_loglinear", (DL_FUNC) &_SigPoisProcess_Update_Theta_MLE_loglinear, 8},
+    {"_SigPoisProcess_Update_Theta_Betas_loglinear", (DL_FUNC) &_SigPoisProcess_Update_Theta_Betas_loglinear, 9},
+    {"_SigPoisProcess_PPF_loglinear", (DL_FUNC) &_SigPoisProcess_PPF_loglinear, 18},
+    {"_SigPoisProcess_sample_Categorical", (DL_FUNC) &_SigPoisProcess_sample_Categorical, 1},
+    {"_SigPoisProcess_sample_R", (DL_FUNC) &_SigPoisProcess_sample_R, 4},
+    {"_SigPoisProcess_sample_Theta", (DL_FUNC) &_SigPoisProcess_sample_Theta, 8},
+    {"_SigPoisProcess_sample_Mu", (DL_FUNC) &_SigPoisProcess_sample_Mu, 6},
+    {"_SigPoisProcess_sample_Betas", (DL_FUNC) &_SigPoisProcess_sample_Betas, 6},
+    {"_SigPoisProcess_PoissonProcess_optim", (DL_FUNC) &_SigPoisProcess_PoissonProcess_optim, 19},
     {"_SigPoisProcess_eval_logPosterior", (DL_FUNC) &_SigPoisProcess_eval_logPosterior, 8},
     {"_SigPoisProcess_compute_CompressiveNMF_MAP", (DL_FUNC) &_SigPoisProcess_compute_CompressiveNMF_MAP, 11},
     {"_SigPoisProcess_sample_table_cpp", (DL_FUNC) &_SigPoisProcess_sample_table_cpp, 1},
