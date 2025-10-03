@@ -61,6 +61,27 @@ estimateTotalCounts.SigPoisProcess <- function(object, ...){
 }
 
 #' @export
+estimateTotalCounts.SigPoisProcess_mult <- function(object, SignalTrack, bin_weight, ...){
+  R <- object$Signatures
+  Betas <- object$Betas
+  Theta <- object$Thetas
+  #CumSums <- apply(exp(SignalTrack %*% Betas), 2, function(x) cumsum(bin_weight * x))
+  sums <- bin_weight %*% exp(SignalTrack %*% Betas)
+  MatOut <- R %*% (Theta * c(sums))
+  colnames(MatOut) <- colnames(Theta)
+  rownames(MatOut) <- rownames(R)
+  return(MatOut)
+}
+
+#' @export
+estimateMutationRate.SigPoisProcess_mult <- function(i, j, R, Betas, Theta, SignalTrack, bin_weight, ...){
+  CumSums <- apply(exp(SignalTrack %*% Betas), 2, function(x) cumsum(bin_weight * x))
+  track <- c(crossprod(R[i, ], Theta[, j] * t(CumSums)))
+  return(track)
+}
+
+
+#' @export
 getTotalMutations <- function(gr_Mutations, df_areas = NULL){
   Mutations <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
     dplyr::select(sample, channel)
@@ -114,5 +135,100 @@ compute_SignatureCovariate_probs <- function(object, gr_Mutations) {
 NULL
 
 
+#' @export
+plot_betas <- function(Betas_sol){
+  df_betas <- as.data.frame(Betas_sol) %>%
+    rownames_to_column("Covariate") %>%
+    gather(key = "Signature", value = "Beta", -Covariate) %>%
+    dplyr::mutate(
+      Covariate = factor(Covariate, levels=unique(Covariate)),
+      Signature = as.factor(Signature),
+      AltCol = ifelse((as.numeric(Covariate) %% 2) == 0, "gray93", "gray97"))
+
+  plot_out <- ggplot2::ggplot(df_betas, aes(x = Covariate, y = Signature)) +
+    ggplot2::geom_tile(aes(fill = AltCol), color = "white", width = 0.95, height = 0.95) +
+    ggplot2::scale_fill_manual(
+      values = c("gray93" = "gray93", "gray97" = "gray97"),
+      guide = "none"
+    ) +
+    ggnewscale::new_scale_fill() +
+    ggplot2::geom_point(aes(fill = Beta, size = abs(Beta)),
+                        shape = 21, color = "grey30", stroke = 0.2,
+                        na.rm = TRUE) +
+    #ggplot2::scale_fill_gradientn(name = "Beta",
+    #                              colours =c("blue","lightblue", "white", "red")) +
+    scale_fill_gradient2(mid = "white", low = "blue", high = "red", midpoint = 0)+
+    ggplot2::scale_y_discrete(limits = rev(levels(df_betas$Signature))) +
+    ggplot2::scale_x_discrete(position = "top") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 0, vjust = 0),
+      axis.title = ggplot2::element_blank(),
+      #axis.text.y = element_blank(),
+      plot.margin = ggplot2::margin(0, 0, 0, 0),
+      axis.ticks.x = ggplot2::element_blank())+
+    guides(size = "none")
+  return(plot_out)
+}
+
+#' @export
+plot_betasCI <- function(Betas_sol, lowCI, highCI){
+  df_betas <- as.data.frame(Betas_sol) %>%
+    rownames_to_column("Covariate") %>%
+    gather(key = "Signature", value = "Beta", -Covariate)
+
+  # Add CI columns
+  df_betas$lowCI <- as.numeric(as.data.frame(lowCI) %>%
+                                 gather(key = "Signature", value = "lowCI") %>%
+                                 pull(lowCI))
+  df_betas$highCI <- as.numeric(as.data.frame(highCI) %>%
+                                  gather(key = "Signature", value = "highCI") %>%
+                                  pull(highCI))
+
+
+  # Add alternating color
+  df_betas <- df_betas %>%
+    mutate(
+      Covariate = factor(Covariate, levels=unique(Covariate)),
+      Signature = as.factor(Signature),
+      AltCol = ifelse((as.numeric(Covariate) %% 2) == 0, "gray93", "gray97"),
+      MarkZero = (lowCI <= 0 & highCI >= 0)
+    )
+
+
+  plot_out <- ggplot2::ggplot(df_betas, aes(x = Covariate, y = Signature)) +
+    ggplot2::geom_tile(aes(fill = AltCol), color = "white", width = 0.95, height = 0.95) +
+    ggplot2::scale_fill_manual(
+      values = c("gray93" = "gray93", "gray97" = "gray97"),
+      guide = "none"
+    ) +
+    ggnewscale::new_scale_fill() +
+    ggplot2::geom_point(aes(fill = Beta, size = abs(Beta)),
+                        shape = 21, color = "grey30", stroke = 0.2,
+                        na.rm = TRUE) +
+    geom_point(data = df_betas %>% filter(MarkZero),
+               aes(x = Covariate, y = Signature), shape = 4, size = 2, color = "gray30") +
+    #ggplot2::scale_fill_gradientn(name = "Beta",
+    #                              colours =c("blue","lightblue", "white", "red")) +
+    scale_fill_gradient2(mid = "white", low = "blue", high = "red", midpoint = 0)+
+    ggplot2::scale_y_discrete(limits = rev(levels(df_betas$Signature))) +
+    ggplot2::scale_x_discrete(position = "top") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 0, vjust = 0),
+      axis.title = ggplot2::element_blank(),
+      #axis.text.y = element_blank(),
+      plot.margin = ggplot2::margin(0, 0, 0, 0),
+      axis.ticks.x = ggplot2::element_blank())+
+    guides(size = "none")
+  return(plot_out)
+}
+
+get_PosteriorCI <- function(chain){
+  chainMean <- apply(chain, c(2,3), mean)
+  chainHighCI <- resMean <- apply(chain, c(2,3), function(x) quantile(x, 0.975))
+  chainLowCI <- apply(chain, c(2,3), function(x) quantile(x, 0.025))
+  return(list("mean" = chainMean, "lowCI" = chainLowCI, "highCI"= chainHighCI))
+}
 
 

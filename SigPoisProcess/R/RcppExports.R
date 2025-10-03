@@ -121,12 +121,116 @@ sample_Mu <- function(Theta, Betas, a, a0, b0, Ttot) {
     .Call(`_SigPoisProcess_sample_Mu`, Theta, Betas, a, a0, b0, Ttot)
 }
 
-sample_Betas <- function(W_k, X, SignalTrack, bin_weight, Mu_k, Theta_sum_k) {
-    .Call(`_SigPoisProcess_sample_Betas`, W_k, X, SignalTrack, bin_weight, Mu_k, Theta_sum_k)
+sample_Betas <- function(Betas_start, W, X, SignalTrack, Theta, bin_weight, Mu, nsamples) {
+    .Call(`_SigPoisProcess_sample_Betas`, Betas_start, W, X, SignalTrack, Theta, bin_weight, Mu, nsamples)
 }
 
-.PoissonProcess_optim <- function(R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method = "mle", a = 1.1, a0 = 2.5, b0 = 1.5, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, n_iter_betas = 2L, maxiter = 20L, tol = 1e-5) {
-    .Call(`_SigPoisProcess_PoissonProcess_optim`, R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method, a, a0, b0, update_R, update_Theta, update_Betas, n_iter_betas, maxiter, tol)
+sample_Betas_MALA <- function(Betas_start, W, X, SignalTrack, Theta, bin_weight, PrecondSigma, Mu, nsamples, eps_step = 1) {
+    .Call(`_SigPoisProcess_sample_Betas_MALA`, Betas_start, W, X, SignalTrack, Theta, bin_weight, PrecondSigma, Mu, nsamples, eps_step)
+}
+
+update_Mutation_assignement <- function(W, Probs) {
+    invisible(.Call(`_SigPoisProcess_update_Mutation_assignement`, W, Probs))
+}
+
+update_Signatures_R <- function(R, W, SigPrior, Alpha, channel_indices) {
+    invisible(.Call(`_SigPoisProcess_update_Signatures_R`, R, W, SigPrior, Alpha, channel_indices))
+}
+
+update_Loadings_Theta <- function(Theta, Betas, ExpBetaSignal, bin_weight, W, Mu, Smat, theta_denom, a, Ttot, sample_indices) {
+    invisible(.Call(`_SigPoisProcess_update_Loadings_Theta`, Theta, Betas, ExpBetaSignal, bin_weight, W, Mu, Smat, theta_denom, a, Ttot, sample_indices))
+}
+
+update_RelevanceWeights_Mu <- function(Mu, Theta, Betas, Betasq, Theta_sum, a, a0, b0, Ttot) {
+    invisible(.Call(`_SigPoisProcess_update_RelevanceWeights_Mu`, Mu, Theta, Betas, Betasq, Theta_sum, a, a0, b0, Ttot))
+}
+
+update_Betas_coefficients <- function(Betas, W, Mu, Theta, X, SignalTrack, bw, betadiff, Theta_sum, it, beta_new, S, Sigmas_adp, MeanBetas, WtX) {
+    invisible(.Call(`_SigPoisProcess_update_Betas_coefficients`, Betas, W, Mu, Theta, X, SignalTrack, bw, betadiff, Theta_sum, it, beta_new, S, Sigmas_adp, MeanBetas, WtX))
+}
+
+update_Betas_coefficients_MALA <- function(Betas, WtX, SignalTrack, Theta_sum, beta_new, bin_weight, bw, Mu, eps_step, ExpBetaSignal, ExpSignalBeta_new, PrecondSigma, Cholesky, Inverse, logGrad_old, logGrad_new) {
+    invisible(.Call(`_SigPoisProcess_update_Betas_coefficients_MALA`, Betas, WtX, SignalTrack, Theta_sum, beta_new, bin_weight, bw, Mu, eps_step, ExpBetaSignal, ExpSignalBeta_new, PrecondSigma, Cholesky, Inverse, logGrad_old, logGrad_new))
+}
+
+.PoissonProcess_Bayes_MALA <- function(R_start, Theta_start, Betas_start, Mu_start, X, SignalTrack, bin_weight, nsamples, burn_in, channel_id, sample_id, SigPrior, PrecondSigma, eps_step = 1.2, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, a = 1.1, a0 = 2.5, b0 = 1.5) {
+    .Call(`_SigPoisProcess_PoissonProcess_Bayes_MALA`, R_start, Theta_start, Betas_start, Mu_start, X, SignalTrack, bin_weight, nsamples, burn_in, channel_id, sample_id, SigPrior, PrecondSigma, eps_step, update_R, update_Theta, update_Betas, a, a0, b0)
+}
+
+.PoissonProcess_Bayes <- function(R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, nsamples, burn_in, channel_id, sample_id, SigPrior, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, a = 1.1, a0 = 2.5, b0 = 1.5) {
+    .Call(`_SigPoisProcess_PoissonProcess_Bayes`, R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, nsamples, burn_in, channel_id, sample_id, SigPrior, update_R, update_Theta, update_Betas, a, a0, b0)
+}
+
+sample_CategoricalCN <- function(Probs) {
+    .Call(`_SigPoisProcess_sample_CategoricalCN`, Probs)
+}
+
+sample_RCN <- function(R, W, SigPrior, channel_id) {
+    .Call(`_SigPoisProcess_sample_RCN`, R, W, SigPrior, channel_id)
+}
+
+sample_ThetaCN <- function(Theta, Betas, SignalTrack, CopyTrack_t, CopyTot, W, Mu, a, sample_id) {
+    .Call(`_SigPoisProcess_sample_ThetaCN`, Theta, Betas, SignalTrack, CopyTrack_t, CopyTot, W, Mu, a, sample_id)
+}
+
+sample_MuCN <- function(Theta, a, a0, b0, CopyTot) {
+    .Call(`_SigPoisProcess_sample_MuCN`, Theta, a, a0, b0, CopyTot)
+}
+
+sample_Sigma2CN <- function(Betas, c0, d0) {
+    .Call(`_SigPoisProcess_sample_Sigma2CN`, Betas, c0, d0)
+}
+
+sample_BetasCN <- function(Betas_start, W, X, SignalTrack, Theta, bin_weight, Mu, nsamples) {
+    .Call(`_SigPoisProcess_sample_BetasCN`, Betas_start, W, X, SignalTrack, Theta, bin_weight, Mu, nsamples)
+}
+
+update_Mutation_assignementCN <- function(W, Probs) {
+    invisible(.Call(`_SigPoisProcess_update_Mutation_assignementCN`, W, Probs))
+}
+
+update_Signatures_RCN <- function(R, W, SigPrior, Alpha, channel_indices) {
+    invisible(.Call(`_SigPoisProcess_update_Signatures_RCN`, R, W, SigPrior, Alpha, channel_indices))
+}
+
+update_Activities_ThetaCN <- function(Theta, ExpBetaSignal, CopyTrack_t, CopyTot, W, Mu, Smat, a, sample_indices) {
+    invisible(.Call(`_SigPoisProcess_update_Activities_ThetaCN`, Theta, ExpBetaSignal, CopyTrack_t, CopyTot, W, Mu, Smat, a, sample_indices))
+}
+
+update_RelevanceWeights_MuCN <- function(Mu, Theta, CopyTot, a, a0, b0) {
+    invisible(.Call(`_SigPoisProcess_update_RelevanceWeights_MuCN`, Mu, Theta, CopyTot, a, a0, b0))
+}
+
+update_Variances_Sigma2 <- function(Sigma2, Betas, c0, d0) {
+    invisible(.Call(`_SigPoisProcess_update_Variances_Sigma2`, Sigma2, Betas, c0, d0))
+}
+
+EllipticalSlice <- function(k, beta0, WtX, Sigma2, Theta, SignalTrack, CopyTrack_t) {
+    .Call(`_SigPoisProcess_EllipticalSlice`, k, beta0, WtX, Sigma2, Theta, SignalTrack, CopyTrack_t)
+}
+
+update_Betas_EllipticalSlice <- function(Betas, WtX, Sigma2, Theta, SignalTrack, CopyTrack_t) {
+    invisible(.Call(`_SigPoisProcess_update_Betas_EllipticalSlice`, Betas, WtX, Sigma2, Theta, SignalTrack, CopyTrack_t))
+}
+
+.PoissonProcess_BayesCN <- function(R_start, Theta_start, Betas_start, Mu_start, Sigma2_start, X, SignalTrack, CopyTrack, nsamples, burn_in, channel_id, sample_id, SigPrior, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, a = 1.1, a0 = 2.5, b0 = 1.5, c0 = 100, d0 = 1) {
+    .Call(`_SigPoisProcess_PoissonProcess_BayesCN`, R_start, Theta_start, Betas_start, Mu_start, Sigma2_start, X, SignalTrack, CopyTrack, nsamples, burn_in, channel_id, sample_id, SigPrior, update_R, update_Theta, update_Betas, a, a0, b0, c0, d0)
+}
+
+.PoissonProcess_optim <- function(R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method = "map", shrinkage = "none", a = 1.1, a0 = 2.5, b0 = 1.5, c0 = 100, d0 = 1, rho = 5, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, n_iter_betas = 2L, maxiter = 20L, tol = 1e-6, correct_betas = FALSE) {
+    .Call(`_SigPoisProcess_PoissonProcess_optim`, R_start, Theta_start, Betas_start, X, SignalTrack, bin_weight, channel_id, sample_id, SigPrior, method, shrinkage, a, a0, b0, c0, d0, rho, update_R, update_Theta, update_Betas, n_iter_betas, maxiter, tol, correct_betas)
+}
+
+.PoissonProcess_optim_CN <- function(R_start, Theta_start, Betas_start, Mu_start, Sigma2_start, X, SignalTrack, CopyTrack, channel_id, sample_id, SigPrior, method = "map", shrinkage = "mu_sigma", a = 1.1, a0 = 2.5, b0 = 1.5, c0 = 100, d0 = 1, update_R = TRUE, update_Theta = TRUE, update_Betas = TRUE, n_iter_betas = 2L, rho = 0.5, maxiter = 20L, tol = 1e-6, correct_betas = FALSE) {
+    .Call(`_SigPoisProcess_PoissonProcess_optim_CN`, R_start, Theta_start, Betas_start, Mu_start, Sigma2_start, X, SignalTrack, CopyTrack, channel_id, sample_id, SigPrior, method, shrinkage, a, a0, b0, c0, d0, update_R, update_Theta, update_Betas, n_iter_betas, rho, maxiter, tol, correct_betas)
+}
+
+Reconstruct_Lambda <- function(SignalTrack, CopyTrack, R, Theta, Betas) {
+    .Call(`_SigPoisProcess_Reconstruct_Lambda`, SignalTrack, CopyTrack, R, Theta, Betas)
+}
+
+Reconstruct_CountMatrix <- function(SignalTrack, CopyTrack, R, Theta, Betas) {
+    .Call(`_SigPoisProcess_Reconstruct_CountMatrix`, SignalTrack, CopyTrack, R, Theta, Betas)
 }
 
 eval_logPosterior <- function(X, R, Theta, Mu, a, a0, b0, SigPrior) {

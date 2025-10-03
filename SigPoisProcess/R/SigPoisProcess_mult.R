@@ -1,7 +1,7 @@
 #' Poisson process factorization for topographic-dependent mutational signatures analysis
 #'
 #' @param gr_Mutations GenomicRanges object contatining covariates and samples
-#' @param SignalTrack Matrix containing signals for the whole genome
+#' @param gr_SignalTrack Matrix containing signals for the whole genome
 #' @param method Which method to use for the estimation. Available options are 'mle' and 'map'
 #' @param bin_weight Weights to give to each region
 #' @param K Upper bound to the number of signatures expected in the data
@@ -51,7 +51,7 @@ SigPoisProcess_mult <- function(gr_Mutations,
   sample_id <- as.numeric(Mutations$sample)
 
   #----------------------------------------------- Model dimensions
-  I <- length(unique(channel_id)) # Number of mutational channels
+  I <- length(levels(Mutations$channel)) # Number of mutational channels
   J <- length(unique(sample_id)) # Number of patients
   p <- ncol(SignalTrack) # Number of covariates (excluding the intercept)
   N <- nrow(Mutations) # Total number of mutations
@@ -67,6 +67,16 @@ SigPoisProcess_mult <- function(gr_Mutations,
   } else {
     a0 <- prior_params$a0
     b0 <- prior_params$b0
+  }
+
+  #---- Shrinkage method
+  shrinkage = prior_params$shrinkage
+  if (is.null(prior_params$c0) | is.null(prior_params$d0)) {
+    c0 <- K / 2 + 1
+    d0 <- epsilon * K / 2
+    } else {
+    c0 <- prior_params$c0
+    d0 <- prior_params$d0
   }
 
   #----------------------------------------------- Prior for the signatures
@@ -122,7 +132,7 @@ SigPoisProcess_mult <- function(gr_Mutations,
 
   #---- Initial value for the regression coefficients (start at 0)
   if(is.null(init$Betas_start)){
-    Betas_start <- matrix(0, nrow = p, ncol = K)
+    Betas_start <- matrix(rnorm(p * K, mean = 0, sd = 1e-6), nrow = p, ncol = K)#matrix(0, nrow = p, ncol = K)
   } else {
     Betas_start <- init$Betas_start
   }
@@ -157,10 +167,13 @@ SigPoisProcess_mult <- function(gr_Mutations,
                                a = a,
                                a0 = a0,
                                b0 = b0,
+                               c0 = c0,
+                               d0 = d0,
+                               shrinkage = shrinkage,
                                update_R = update_Signatures,
                                update_Theta = update_Theta,
                                update_Betas = update_Betas,
-                               method = "map",
+                               method = method,
                                maxiter = maxiter,
                                n_iter_betas = n_iter_betas,
                                tol = tol)
@@ -210,9 +223,14 @@ SigPoisProcess_mult.PriorParams <- function(a = 1.01, alpha = 1.01,
                                             epsilon = 0.001,
                                             a0 = NULL,
                                             b0 = NULL,
+                                            c0 = NULL,
+                                            d0 = NULL,
+                                            shrinkage = "none",
                                             SigPrior = NULL){
   list(a = a, alpha = alpha, epsilon = epsilon,
-       a0 = a0, b0 = b0, SigPrior = SigPrior)
+       a0 = a0, b0 = b0, c0 = c0, d0 = d0,
+       shrinkage = shrinkage,
+       SigPrior = SigPrior)
 }
 
 

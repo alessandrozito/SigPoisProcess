@@ -21,8 +21,6 @@ SigPoisProcess_mult(
 \arguments{
 \item{gr_Mutations}{GenomicRanges object contatining covariates and samples}
 
-\item{SignalTrack}{Matrix containing signals for the whole genome}
-
 \item{bin_weight}{Weights to give to each region}
 
 \item{K}{Upper bound to the number of signatures expected in the data}
@@ -34,6 +32,8 @@ SigPoisProcess_mult(
 \item{controls}{Control parameters for each method. See \code{SigPoisProcess.contol}}
 
 \item{init}{Initialization parameters. See \code{SigPoisProcess.init}}
+
+\item{gr_SignalTrack}{Matrix containing signals for the whole genome}
 }
 \value{
 An object of class SigPoisProcess_mult

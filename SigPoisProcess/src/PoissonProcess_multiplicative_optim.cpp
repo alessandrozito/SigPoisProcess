@@ -7,23 +7,27 @@ using namespace Rcpp;
 // [[Rcpp::depends(RcppArmadillo)]]
 
 // [[Rcpp::export(.PoissonProcess_optim)]]
-List PoissonProcess_optim(arma::mat &R_start,           // Signatures
+List PoissonProcess_optim(arma::mat &R_start,          // Signatures
                          arma::mat &Theta_start,       // Loadings
                          arma::mat &Betas_start,       // Coefficients
                          arma::mat &X,                 // Values of covariates at observed points
-                         arma::mat &SignalTrack,        // Whole signal track
+                         arma::mat &SignalTrack,       // Whole signal track
                          arma::vec &bin_weight,        // Weight of each bin
                          arma::uvec channel_id,
                          arma::uvec sample_id,
                          arma::mat SigPrior,
-                         std::string method = "mle",
+                         std::string method = "map",
+                         std::string shrinkage = "none",
                          double a = 1.1, double a0 = 2.5, double b0 = 1.5, // Hyperparameters of the prior
+                         double c0 = 100, double d0 = 1,
+                         double rho = 5,
                          bool update_R = true,
                          bool update_Theta = true,
                          bool update_Betas = true,
                          int n_iter_betas = 2,
                          int maxiter = 20,            // Maximum number of iterations
-                         double tol = 1e-5) {
+                         double tol = 1e-6,
+                         bool correct_betas = false) {
 
   // Model details
   int I = R_start.n_rows;        // Number of mutational channels
@@ -31,8 +35,14 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
   int K = Theta_start.n_rows;    // Number of signatures
   int p = Betas_start.n_rows;    // Number of covariates
   int N = X.n_rows;              // Number of observations
-
+  int Ntrack = SignalTrack.n_rows;
   double Ttot = arma::accu(bin_weight);
+
+  // Storage values
+  arma::cube BETAS(maxiter, p, K);
+  arma::cube THETAS(maxiter, K, J);
+  arma::cube SIGS(maxiter, I, K);
+  arma::mat MU(maxiter, K);
 
   // Initialize parameters
   arma::mat R = R_start;               // Signatures
@@ -40,7 +50,12 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
   // further transpose along the loop
   arma::mat Betas = Betas_start;       // Signature regression coefficients
 
-  arma::rowvec Mu = arma::sum(Theta, 0);   // Row vector of patient-specific random effects
+  arma::rowvec Mu = arma::sum(Theta, 0) * Ttot / J;   // Row vector of signature-specific random effects
+  arma::rowvec Sigma2(K);                  // Row vector of signature-specific variance for betas
+  Sigma2.ones();
+  arma::vec Lambda(p, arma::fill::zeros);   // Row vector of signature-specific random effects
+  Lambda.ones();
+
   // Pre-save vector of indices denoting samples and channels in X
   // ---- Channels
   std::vector<arma::uvec> channel_indices(I);
@@ -64,19 +79,24 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
   arma::vec Theta_sum(K);
   arma::mat Xtot_w(N, p);
   arma::vec grad_all(p);
-  arma::vec W(N);
-  arma::mat Probs(N, K);                            // Matrix containing the
+  arma::vec W(Ntrack);
+  arma::mat Probs(N, K);
+
   // probabilities for the signature
   arma::mat bigProd(N, K);
   arma::mat Hess(p, p, arma::fill::zeros);          // Hessian matrix
   arma::mat grad_probs(p, K, arma::fill::zeros);    // First part of the gradient
+  arma::vec xi(p); // Keep gradient stable
 
   // Mean responses
   arma::mat Exp_XBetas = arma::exp(arma::clamp(X * Betas, -20, 20));
   arma::mat ExpBetaSignal = arma::exp(arma::clamp(SignalTrack * Betas, -20, 20));
+  arma::mat Betasq = arma::square(Betas);
 
   // Quantities to control the maximization
   arma::vec trace; // trace to keep track of convergence
+  arma::vec trace_logLik; // trace to keep track of convergence
+  arma::vec trace_logPrior; // trace to keep track of convergence
   double maxdiff = 10.0;
   int R_show = 10;
   bigProd = Exp_XBetas % Theta.rows(sample_id) % R.rows(channel_id);
@@ -86,14 +106,17 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
   double logPrior_old = 0.0;
   double logPrior = 0.0;
   double logLik = 0.0;
+
+
+
   if (method == "map") {
     logPrior_old = arma::accu((SigPrior - 1) % arma::log(R)) +  // Dirichlet prior over signatures
                    arma::accu((a - 1) * arma::log(Theta) -
                               (a * Ttot / Mu) % Theta.each_row()) +         // Gamma prior over baseline
-                   arma::accu(-(a + a0 + p/2 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior
+                   arma::accu(-(a * J + a0 + p/2 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior
                    arma::accu(- (1 / 2 * Mu) % arma::sum(arma::square(Betas), 0));
   }
-  trace = arma::join_vert(trace, arma::vec({logPrior_old + logLik_old}));
+  //trace = arma::join_vert(trace, arma::vec({logPrior_old + logLik_old}));
   int it = 0;
 
   for(int iter = 0; iter < maxiter + 1; iter++){
@@ -103,11 +126,38 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
       logLik = arma::accu(arma::log(arma::sum(bigProd, 1))) -
         arma::accu(Theta.each_row() % (bin_weight.t() * ExpBetaSignal));
       if (method == "map") {
-        logPrior = arma::accu((SigPrior - 1) % arma::log(R)) +  // Dirichlet prior over signatures
-          arma::accu((a - 1) * arma::log(Theta) -
-          (a * Ttot / Mu) % Theta.each_row()) +         // Gamma prior over baseline
-          arma::accu(-(a + a0 + p/2 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior
-          arma::accu(- (1 / 2 * Mu) % arma::sum(arma::square(Betas), 0));
+
+        // No shrinkage
+        if(shrinkage == "none") {
+          logPrior = arma::accu((SigPrior - 1) % arma::log(R)) +  // Dirichlet prior over signatures
+            arma::accu((a - 1) * arma::log(Theta) -
+                       (a * Ttot / Mu) % Theta.each_row()) - arma::accu(a * J * arma::log(Mu))+// Gamma prior over baseline
+            arma::accu(-(a0 + p/2 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior over signatures
+            arma::accu(- (1 / 2 * Mu) % arma::sum(arma::square(Betas), 0)); // Normal prior
+
+          // Global Inverse gamma shrinkage for the covariate
+        } else if (shrinkage == "invgamma") {
+          logPrior = arma::accu((SigPrior - 1) % arma::log(R)) +  // Dirichlet prior over signatures
+            arma::accu((a - 1) * arma::log(Theta) -
+            (a * Ttot / Mu) % Theta.each_row()) - arma::accu(a * J * arma::log(Mu))  + // Gamma prior over baseline
+            arma::accu(- (a0 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior over signatures
+            arma::accu(- (c0 + 1) * arma::log(Lambda) - d0 / Lambda);    // InvGamma prior over Beta variance
+            for(int k = 0; k<K; k++){
+              for(int l = 0; l < p; l++){
+                logPrior += - 0.5 * (std::log(Mu(k)) + std::log(Lambda(l))) -
+                  (0.5 / (Mu(k) * Lambda(l))) * std::pow(Betas(l, k), 2);
+              }
+            }
+
+        // Variance-specific component for the signature
+        } else if (shrinkage == "mu_sigma") {
+          logPrior = arma::accu((SigPrior - 1) % arma::log(R)) +  // Dirichlet prior over signatures
+            arma::accu((a - 1) * arma::log(Theta) -
+            (a * Ttot / Mu) % Theta.each_row()) - arma::accu(a * J * arma::log(Mu))+// Gamma prior over baseline
+            arma::accu(- (a0 + 1) * arma::log(Mu) - b0/Mu) +    // InvGamma prior over signatures
+            arma::accu(- (c0 + 1 + p/2) * arma::log(Sigma2) - d0 / Sigma2) +    // InvGamma prior over Beta variance
+            arma::accu(- (1 / 2 * Sigma2) % arma::sum(arma::square(Betas), 0)); // Normal prior
+        }
         maxdiff = std::abs((logLik + logPrior)/(logLik_old + logPrior_old) - 1);
         Rprintf("Iteration %i - diff %.10f - logposterior %.5f \n", iter + 1, maxdiff, logLik + logPrior);
         logLik_old = logLik;
@@ -118,12 +168,32 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
         logLik_old = logLik;
       }
       trace = arma::join_vert(trace, arma::vec({logPrior + logLik}));
+      trace_logLik = arma::join_vert(trace_logLik, arma::vec({logLik}));
+      trace_logPrior = arma::join_vert(trace_logPrior, arma::vec({logPrior}));
     }
 
-    //------------------------------------------ STEP 0 - optional UPDATE MU
+    //------------------------------------------ STEP 0 - optional UPDATE VARIANCES
     if (update_Theta & method == "map") {
-      arma::rowvec squared_norms = arma::sum(arma::square(Betas), 0);
-      Mu = (b0 + a * Ttot * arma::sum(Theta, 0) + squared_norms/2)/(p/2 + a0 + a * J + 1);
+      Betasq = arma::square(Betas);
+      if (shrinkage == "none") {
+        // Update Mu only
+        arma::rowvec squared_norms = arma::sum(Betasq, 0);
+        Mu = (b0 + a * Ttot * arma::sum(Theta, 0) + squared_norms/2)/(p/2 + a0 + a * J + 1);
+
+      } else if (shrinkage == "invgamma") {
+        // Update Mu
+        arma::rowvec squared_norms_mu = arma::sum(Betasq.each_col() / Lambda, 0);
+        Mu = (b0 + a * Ttot * arma::sum(Theta, 0) + squared_norms_mu/2)/(p/2 + a0 + a * J + 1);
+        // Update Lambda
+        arma::vec squared_norms_lambda = arma::sum(Betasq.each_row() / Mu, 1);
+        Lambda = (d0 + squared_norms_lambda/2) /(c0 + 1 + K/2);
+      } else if (shrinkage == "mu_sigma") {
+        arma::rowvec squared_norms = arma::sum(Betasq, 0);
+        // Update Mu
+        Mu = (b0 + a * Ttot * arma::sum(Theta, 0))/(a0 + a * J + 1);
+        // Update Sigma2
+        //Sigma2 = (d0 + squared_norms/2)/(c0 + p/2 + 1);
+      }
     }
 
     //------------------------------------------ STEP 1 - UPDATE SIGNATURES R
@@ -151,9 +221,7 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
     if (update_Theta) {
       //---- Update probabilities
       Probs = Exp_XBetas % Theta.rows(sample_id) % R.rows(channel_id);
-      Probs = arma::normalise(Probs, 1, 1);
-      //---- Sum probabilities by patients
-      Probs = arma::normalise(Probs, 1, 1);
+      Probs = arma::normalise(Probs + arma::datum::eps/30, 1, 1);
       //---- Denominator for Theta
       Theta_denom = bin_weight.t() * ExpBetaSignal;
       // Iterate across patients
@@ -164,21 +232,25 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
             Theta.row(j) = arma::sum(Probs.rows(idx), 0) / Theta_denom;
           } else if (method == "map") {
             Theta.row(j) = arma::sum(Probs.rows(idx), 0) / ((Ttot * a)/Mu +  Theta_denom);
+            //Rcout << arma::sum(Probs.rows(idx), 0)<< "\n";
           }
         }
       }
       //Theta = Theta_upd.each_row() / Theta_denom;
-      Theta.elem(arma::find(Theta <= 0)).fill(arma::datum::eps/30);
+      //Theta.elem(arma::find(Theta <= 0)).fill(arma::datum::eps/30);
     }
 
     //------------------------------------------ STEP 3 - UPDATE COEFFICIENTS Beta
     // We will use gradient descent steps
     if (update_Betas) {
+      Betasq = arma::square(Betas);
+      arma::rowvec squared_norms = arma::sum(Betasq, 0);
+      // Sum all thetas
       Theta_sum = arma::sum(Theta, 0).t();
       for(int iter_betas = 0; iter_betas < n_iter_betas; iter_betas++){
         //---- Update probabilities
         Probs = Exp_XBetas % Theta.rows(sample_id) % R.rows(channel_id);
-        Probs = arma::normalise(Probs, 1, 1);
+        Probs = arma::normalise(Probs + arma::datum::eps/30, 1, 1);
         // Update first part of the gradient
         grad_probs = X_t * Probs;
         // Cycle through each signature index
@@ -191,13 +263,36 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
             Hess = (Hess + Hess.t())/2 +  200 * arma::eye(size(Hess));
             grad_all = arma::sum(Xtot_w, 0).t();
           } else if (method == "map") {
-            Hess = (Hess + Hess.t())/2 +  1/Mu(k) * arma::eye(size(Hess));
-            grad_all = arma::sum(Xtot_w, 0).t() + Betas.col(k)/Mu(k);
+
+            if(shrinkage == "none") {
+              Hess = (Hess + Hess.t())/2 + 1/Mu(k) * arma::eye(size(Hess));
+              grad_all = arma::sum(Xtot_w, 0).t() + Betas.col(k)/Mu(k);
+
+            } else if (shrinkage == "invgamma") {
+              Hess = (Hess + Hess.t())/2 +  1 / Mu(k) * arma::diagmat(1 / Lambda);
+              grad_all = arma::sum(Xtot_w, 0).t() + Betas.col(k) / (Mu(k) * Lambda);
+
+            } else if (shrinkage == "mu_sigma") {
+              Sigma2 = (d0 + squared_norms/2)/(c0 + p/2 + 1);
+              Hess = (Hess + Hess.t())/2 + 1/Sigma2(k) * arma::eye(size(Hess));
+              grad_all = arma::sum(Xtot_w, 0).t() + Betas.col(k)/Sigma2(k);
+            }
           }
           //grad_all = arma::sum(Xtot_w, 0).t();
           //  Update
-          Betas.col(k) += arma::solve(Hess, (grad_probs.col(k) - grad_all),
-                    arma::solve_opts::likely_sympd);
+          if (true) {
+            xi = arma::solve(Hess, (grad_probs.col(k) - grad_all),
+                             arma::solve_opts::likely_sympd);
+            //Rcout << arma::norm(xi) << " " << 0.01 * std::pow(p, 0.5) / arma::norm(xi)<< "\n";
+            Betas.col(k) += xi * std::min(1.0, 0.5 * std::pow(p, 0.5) / arma::norm(xi));
+            if(Mu(k) <= 0.002 & correct_betas) {
+              Betas.col(k).zeros();
+            }
+          } else {
+            Betas.col(k) += arma::solve(Hess, (grad_probs.col(k) - grad_all),
+                      arma::solve_opts::likely_sympd);
+          }
+
         }
         Betas = arma::clamp(Betas, -20, 20);
         // Re-update Exp_XBetas and ExpBetaSignal
@@ -210,14 +305,28 @@ List PoissonProcess_optim(arma::mat &R_start,           // Signatures
       break;
     }
     it += 1;
+
+    BETAS.row(iter) = Betas;        // (nsamples, p, K)
+    THETAS.row(iter) = Theta.t();   // (nsamples, K, J)
+    SIGS.row(iter) = R;             // (nsamples, I, K)
+    MU.row(iter) = Mu;              // (nsamples, K)
+
   }
   return List::create(_["R"] = R,
                       _["Theta"] = Theta.t(),
                       _["Betas"] = Betas,
                       _["Mu"] = Mu,
+                      _["Sigma2"] = Sigma2,
+                      _["Lambda"] = Lambda,
                       _["iter"] = it,
                       _["maxdiff"] = maxdiff,
-                      _["trace"] = trace);
+                      _["trace"] = trace,
+                      _["trace_logLik"] = trace_logLik,
+                      _["trace_logPrior"] = trace_logPrior,
+                      _["SIGSchain"] = SIGS,
+                      _["THETAchain"] = THETAS,
+                      _["BETASchain"] = BETAS,
+                      _["MUchain"] = MU);
 
 }
 
