@@ -15,3 +15,5 @@ SigPoisProcess.Rcheck/
 data/
 old_files/
 output/
+
+R/old_scripts/
