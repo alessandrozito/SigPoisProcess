@@ -51,7 +51,7 @@ if(load_DNAse_files){
   # Find biosample summary by experiment
   url <- paste0("https://www.encodeproject.org/experiments/", df_liver$`Experiment accession`, "/?format=json")
   df_liver$`Simple biosample summary` <- sapply(url, function(x) {
-  res <- GET(x, user_agent("encode-metadata-query"))
+  res <- GET(x, user_agent("encode-metadatstd_chrsa-query"))
   meta <- content(res, as = "parsed", simplifyVector = TRUE)
   meta$biosample_summary})
 

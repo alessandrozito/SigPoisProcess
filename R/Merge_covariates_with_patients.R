@@ -1,5 +1,4 @@
 # This script merges covariates at the 1kb resolution with the patients.
-# Stomach-AdenoCA
 library(tidyverse)
 library(BSgenome)
 library(Biostrings)
@@ -9,59 +8,92 @@ library(GenomicRanges)
 library(GenomicFeatures)
 library(rtracklayer)
 
-source("~/SigPoisProcess_analysis/utils.R")
+#source("~/SigPoisProcess_analysis/utils.R")
 
 #------------------------------------------------------------------------
-transform_scores <- function(scores){
-  #sc <- scores + 1e-12
-  #norms <- (sc - mean(sc))/sd(sc)
-  #-log10(pnorm(1 - norms) + 1e-12)
-  #norms + 1 + 1e-12
-  (scores + 1e-12)/mean(scores)
+# transform_scores <- function(scores){
+#   (scores + 1e-18)/mean(scores)
+# }
+#
+# transform_gc <- function(scores, q = 0.265, square = FALSE){
+#   scores <- scores - q
+#   scores[scores <= 0] <- 0
+#   (scores + 1e-18)/mean(scores)
+# }
+#
+#
+# transform_gc <- function(scores, ...){
+#   q <- quantile(scores[scores>0], 0.01)
+#   scores[scores>0] <- scores[scores>0] - q
+#   scores[scores<1e-18] <- 1e-18
+#   sc_score <- (scores - mean(scores))/(2*sd(scores)) + 1
+#   print(table(sc_score < 0))
+#   sc_score[sc_score < 1e-18] <- 1e-18
+#   c(sc_score)
+# }
+
+# transform_scores <- function(scores, ...){
+#   q <- quantile(scores[scores>0], 0.0001)
+#   scores[scores>0] <- scores[scores>0] - q
+#   scores[scores<1e-18] <- 1e-18
+#   scores <- asinh(scores)
+#   scores/mean(scores)
+# }
+
+transform_gr_scores_asinh <- function(gr, ...){
+  blacklist <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/hg19-blacklist.v2.bed")
+  overlaps <- findOverlaps(gr, blacklist)
+  gr[queryHits(overlaps)]$score <- 1e-18
+  scores <- gr$score
+  # q <- quantile(scores[scores>0], 0.0001)
+  #scores[scores > 1e-18] <- scores[scores > 1e-18] #- q
+  #scores <- asinh(scores)
+  scores[scores>1e-18] <- scores[scores>1e-18]/mean(scores[scores>1e-18])
+  gr$score <- scores
+  return(gr)
 }
 
-#transform_scores <- function(scores, ...){
-  #sc <- scores + 1e-12
-  #norms <- (sc - mean(sc))/sd(sc)
-  #-log10(pnorm(1 - norms) + 1e-12)
-  #norms + 1 + 1e-12
- # sc_score <- (scores - mean(scores))/(2*sd(scores)) + 1
-#  print(table(sc_score < 0))
-#  sc_score[sc_score < 1e-12] <- 1e-12
-#  c(sc_score)
-  #sc_score <- exp(sc_score)
-  #sc_score[]
-  #(scores + 1e-12)/mean(scores)
-#}
+# transform_scores <- function(scores, ...){
+#   q_low <- quantile(scores, 0.001)
+#   q_high <- quantile(scores, 0.999)
+#   scores <- ((scores - q_low)/(q_high - q_low)) * 100
+#   #scores[scores>0] <- scores[scores>0] - q
+#   scores[scores<1e-18] <- 1e-18
+#   scores[scores > 100] <- 100
+#   #scores/mean(scores)
+#   scores
+# }
 
-
-transform_gc <- function(scores, q = 0.265, square = FALSE){
-  scores <- scores - q
-  scores[scores <= 0] <- 0
-  (scores + 1e-12)/mean(scores)
+transform_GC_Repli <- function(gr, ...){
+  blacklist <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/hg19-blacklist.v2.bed")
+  overlaps <- findOverlaps(gr, blacklist)
+  gr[queryHits(overlaps)]$score <- 1e-18
+  scores <- gr$score
+  q <- quantile(scores[scores > 1e-18], 0.001)
+  scores[scores > 1e-18] <- scores[scores > 1e-18] - q
+  scores[scores <= 1e-18] <- 1e-18 #scores[scores > 1e-18] - q
+  #scores <- asinh(scores)
+  scores[scores>1e-18] <- scores[scores>1e-18]/mean(scores[scores>1e-18])
+  gr$score <- scores
+  return(gr)
 }
 
 
-transform_gc <- function(scores, ...){
-  q <- quantile(scores[scores>0], 0.01)
-  scores[scores>0] <- scores[scores>0] - q
-  scores[scores<1e-12] <- 1e-12
-  sc_score <- (scores - mean(scores))/(2*sd(scores)) + 1
-  print(table(sc_score < 0))
-  sc_score[sc_score < 1e-12] <- 1e-12
-  c(sc_score)
-}
-
-transform_scores <- function(scores, ...){
-  q <- quantile(scores[scores>0], 0.01)
-  scores[scores>0] <- scores[scores>0] - q
-  scores[scores<1e-12] <- 1e-12
-  scores/mean(scores)
-}
-
-transform_gc <- transform_scores
 
 merge_with_patients <- function(gr_tumor, tumor){
+
+  # Load the genome 1MegaBase
+  genome <- BSgenome.Hsapiens.UCSC.hg19
+  chrom_lengths <- seqlengths(genome)[1:24]
+  #hg19_1Mb <- tileGenome(chrom_lengths, tilewidth = 1e6,
+  #                       cut.last.tile.in.chrom = TRUE)
+
+  # Remove mutations from blacklist
+  blacklist <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/hg19-blacklist.v2.bed")
+  overlaps <- findOverlaps(gr_tumor, blacklist)
+  gr_tumor <- gr_tumor[-queryHits(overlaps)]
+
+  # Subset for the files
   files_subset <- gr_files[grepl(tumor, gr_files)]
 
   donor_sex <- c("male", "female")
@@ -77,6 +109,64 @@ merge_with_patients <- function(gr_tumor, tumor){
     left_join(df_clinical %>% dplyr::select(icgc_donor_id, donor_sex),
               by = c("sample" = "icgc_donor_id"))
 
+  df_files <- data.frame(sample = unique(patients)) %>%
+    left_join(df_clinical %>% dplyr::select(icgc_donor_id, donor_sex),
+              by = c("sample" = "icgc_donor_id"))
+
+  dir_out_cov_normalized <- paste("~/SigPoisProcess/data/ENCODE_pvalues/Cancer_covariates_normalized/")
+
+  ###########################################
+  print("Baseline")
+  genome_1kb <- tileGenome(seqlengths(BSgenome.Hsapiens.UCSC.hg19)[1:24],
+                           tilewidth = 1000,
+                           cut.last.tile.in.chrom = TRUE)
+  std_chrs <- paste0("chr", c(1:22, "X", "Y"))
+  scores <- rep(1e-18, length(gr_tumor))
+
+  gr_male <- genome_1kb
+  gr_male$score <- 1
+  gr_female <- keepSeqlevels(gr_male, std_chrs[-24], pruning.mode = "coarse")
+  overlaps_male <- findOverlaps(gr_male, blacklist)
+  gr_male[queryHits(overlaps_male)]$score <- 1e-18
+  overlaps_female <- findOverlaps(gr_female, blacklist)
+  gr_female[queryHits(overlaps_female)]$score <- 1e-18
+
+  # Merge them with male
+  scores_male <- rep(1e-18, length(gr_tumor))
+  overlaps_male <- findOverlaps(gr_tumor, gr_male)
+  scores_male[queryHits(overlaps_male)] <- gr_male[subjectHits(overlaps_male)]$score
+
+  # Merge them with female
+  scores_female <- rep(1e-18, length(gr_tumor))
+  overlaps_female <- findOverlaps(gr_tumor, gr_female)
+  scores_female[queryHits(overlaps_female)] <- gr_female[subjectHits(overlaps_female)]$score
+
+  # Find which is male and which is female
+  scores[is_female] <- scores_female[is_female]
+  scores[is_male] <- scores_male[is_male]
+
+  # Append to new covariate
+  gr_tumor$score <- scores
+  colnames(mcols(gr_tumor))[ncol(mcols(gr_tumor))] <- "baseline"
+
+  # Calculate areas
+  df_areas <- df_areas %>%
+    left_join(data.frame("donor_sex" = c("male", "female"),
+                         "area" = c(sum(width(gr_male) * gr_male$score),
+                                    sum(width(gr_female) * gr_female$score))),
+              by = "donor_sex")
+  colnames(df_areas)[ncol(df_areas)] <- "baseline"
+
+  # Merge with files
+  df_files <- df_files %>%
+    left_join(data.frame("donor_sex" = c("male", "female"),
+                         "file" = c(paste0(dir_out_cov_normalized, "baseline_male.bigWig"),
+                                    paste0(dir_out_cov_normalized, "baseline_male.bigWig"))))
+  colnames(df_files)[ncol(df_files)] <- "baseline"
+
+  export.bw(gr_male, con = paste0(dir_out_cov_normalized, "baseline_male.bigWig"))
+  export.bw(gr_female, con = paste0(dir_out_cov_normalized, "baseline_female.bigWig"))
+
 
   ###########################################
   # Merge histone marks, POL2RA and CTCF
@@ -91,22 +181,29 @@ merge_with_patients <- function(gr_tumor, tumor){
       file_female <-  files_subset[grepl("_female_", files_subset) & grepl(mark[i], files_subset)]
       print(file_male)
       print(file_female)
+      if(length(file_female) == 0 & length(file_male) == 1) {
+        file_female <- file_male
+      } else if (length(file_female) == 1 & length(file_male) == 0){
+        file_male <- file_female
+      }
     }
-    scores <- rep(1e-12, length(gr_tumor))
+    scores <- rep(1e-18, length(gr_tumor))
     # Load both files
     gr_male <-  rtracklayer::import(paste0(dir_covariates, file_male))
     gr_female <-  rtracklayer::import(paste0(dir_covariates, file_female))
     gr_female <- keepSeqlevels(gr_female, std_chrs[-24], pruning.mode = "coarse")
 
     # Merge them with male
-    gr_male$score <- transform_scores(gr_male$score)
-    scores_male <- rep(1e-12, length(gr_tumor))
+    gr_male <- transform_gr_scores_asinh(gr_male)
+    #gr_male$score <- transform_scores(gr_male$score)
+    scores_male <- rep(1e-18, length(gr_tumor))
     overlaps_male <- findOverlaps(gr_tumor, gr_male)
     scores_male[queryHits(overlaps_male)] <- gr_male[subjectHits(overlaps_male)]$score
 
     # Merge them with female
-    gr_female$score <- transform_scores(gr_female$score)
-    scores_female <- rep(1e-12, length(gr_tumor))
+    #gr_female$score <- transform_scores(gr_female$score)
+    gr_female <- transform_gr_scores_asinh(gr_female)
+    scores_female <- rep(1e-18, length(gr_tumor))
     overlaps_female <- findOverlaps(gr_tumor, gr_female)
     scores_female[queryHits(overlaps_female)] <- gr_female[subjectHits(overlaps_female)]$score
 
@@ -120,11 +217,30 @@ merge_with_patients <- function(gr_tumor, tumor){
 
     # Calculate areas
     df_areas <- df_areas %>%
-      left_join(data.frame("donor_sex" = c("female", "male"),
+      left_join(data.frame("donor_sex" = c("male", "female"),
                            "area" = c(sum(width(gr_male) * gr_male$score),
                                       sum(width(gr_female) * gr_female$score))),
                 by = "donor_sex")
     colnames(df_areas)[ncol(df_areas)] <- mark[i]
+
+    # Append the files
+    if(grepl("_male_", file_female)){
+      file_female <- gsub("_male_", "_female_", file_female)
+    }
+
+    if(grepl("_female_", file_male)){
+      file_male <- gsub("_female_", "_male_", file_male)
+    }
+
+    # Save the new gr_covariates in a separate file
+    export.bw(gr_male, con = paste0(dir_out_cov_normalized, file_male))
+    export.bw(gr_female, con = paste0(dir_out_cov_normalized, file_female))
+
+    df_files <- df_files %>%
+      left_join(data.frame("donor_sex" = c("female", "male"),
+                           "file" = c(paste0(dir_out_cov_normalized, file_female),
+                                      paste0(dir_out_cov_normalized, file_male))))
+    colnames(df_files)[ncol(df_files)] <- mark[i]
 
   }
 
@@ -132,13 +248,17 @@ merge_with_patients <- function(gr_tumor, tumor){
   print("Nucl Occupancy")
   # Merge Nucleosome occupancy (this is the only file related to nucleosome occupancy)
   gr_Nucl <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/NuclOccupancy/GSM920557_hg19_wgEncodeSydhNsomeK562Sig_1kb.bigWig")
-  gr_Nucl$score <- transform_scores(gr_Nucl$score)
+  #gr_Nucl$score <- transform_scores(gr_Nucl$score)
+  gr_Nucl <- transform_gr_scores_asinh(gr_Nucl)
   overlaps <- findOverlaps(gr_tumor, gr_Nucl)
-  scores <- rep(1e-12, length(gr_tumor))
+  scores <- rep(1e-18, length(gr_tumor))
   scores[queryHits(overlaps)] <- gr_Nucl[subjectHits(overlaps)]$score
   gr_tumor$score <- scores
   colnames(mcols(gr_tumor))[length(colnames(mcols(gr_tumor)))] <- "NuclOccup"
   df_areas$NuclOccup <- sum(width(gr_Nucl) * gr_Nucl$score)
+  df_files$NuclOccup <- paste0(dir_out_cov_normalized, "NuclOccup.bigWig")
+
+  export.bw(gr_Nucl, con = paste0(dir_out_cov_normalized, "NuclOccup.bigWig"))
 
   ###########################################
   print("Replication timing")
@@ -150,30 +270,37 @@ merge_with_patients <- function(gr_tumor, tumor){
   } else {
     tmp <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/ReplTiming/Repliseq_WaveSignal_1kb/wgEncodeUwRepliSeqNhekWaveSignalRep1.bigWig")
   }
-  tmp$score <- transform_scores(tmp$score)
+  tmp <- transform_GC_Repli(tmp)
+  #tmp$score <- transform_scores(tmp$score)
   overlaps <- findOverlaps(gr_tumor, tmp)
-  scores <- rep(1e-12, length(gr_tumor))
+  scores <- rep(1e-18, length(gr_tumor))
   scores[queryHits(overlaps)] <- tmp[subjectHits(overlaps)]$score
   gr_tumor$score <- scores
   colnames(mcols(gr_tumor))[length(colnames(mcols(gr_tumor)))] <- "RepliTime"
   df_areas$RepliTime <- sum(width(tmp) * tmp$score)
+  df_files$RepliTime <- paste0(dir_out_cov_normalized, "RepliTime_", tumor, ".bigWig")
+
+  export.bw(tmp, con = paste0(dir_out_cov_normalized, "RepliTime_", tumor, ".bigWig"))
+
 
   ###########################################
   print("GC content")
   # Merge GC content
   gr_male <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/gc_content/gc_content_1kb.bigWig")
   gr_female <- keepSeqlevels(gr_male, std_chrs[-24], pruning.mode = "coarse")
-  scores <- rep(1e-12, length(gr_tumor))
+  scores <- rep(1e-18, length(gr_tumor))
 
   # Merge them with male
-  gr_male$score <- transform_gc(gr_male$score, q = 0.265)
-  scores_male <- rep(1e-12, length(gr_tumor))
+  gr_male <- transform_GC_Repli(gr_male)
+  #gr_male$score <- transform_gc(gr_male$score, q = 0.265)
+  scores_male <- rep(1e-18, length(gr_tumor))
   overlaps_male <- findOverlaps(gr_tumor, gr_male)
   scores_male[queryHits(overlaps_male)] <- gr_male[subjectHits(overlaps_male)]$score
 
   # Merge them with female
-  gr_female$score <- transform_gc(gr_female$score, q = 0.265)
-  scores_female <- rep(1e-12, length(gr_tumor))
+  gr_female <- transform_GC_Repli(gr_female)
+  #gr_female$score <- transform_gc(gr_female$score, q = 0.265)
+  scores_female <- rep(1e-18, length(gr_tumor))
   overlaps_female <- findOverlaps(gr_tumor, gr_female)
   scores_female[queryHits(overlaps_female)] <- gr_female[subjectHits(overlaps_female)]$score
 
@@ -187,28 +314,42 @@ merge_with_patients <- function(gr_tumor, tumor){
 
   # Calculate areas
   df_areas <- df_areas %>%
-    left_join(data.frame("donor_sex" = c("female", "male"),
+    left_join(data.frame("donor_sex" = c("male", "female"),
                          "area" = c(sum(width(gr_male) * gr_male$score),
                                     sum(width(gr_female) * gr_female$score))),
               by = "donor_sex")
   colnames(df_areas)[ncol(df_areas)] <- "GC"
+
+  # Merge with files
+  df_files <- df_files %>%
+    left_join(data.frame("donor_sex" = c("male", "female"),
+                         "file" = c(paste0(dir_out_cov_normalized, "GC_male.bigWig"),
+                                    paste0(dir_out_cov_normalized, "GC_female.bigWig"))))
+  colnames(df_files)[ncol(df_files)] <- "GC"
+
+  export.bw(gr_male, con = paste0(dir_out_cov_normalized, "GC_male.bigWig"))
+  export.bw(gr_female, con = paste0(dir_out_cov_normalized, "GC_female.bigWig"))
 
   ###########################################
   print("GC content square")
   # Merge GCsq content
   gr_male <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/gc_content/gc_content_1kb.bigWig")
   gr_female <- keepSeqlevels(gr_male, std_chrs[-24], pruning.mode = "coarse")
-  scores <- rep(1e-12, length(gr_tumor))
+  scores <- rep(1e-18, length(gr_tumor))
 
   # Merge them with male
-  gr_male$score <- transform_gc(gr_male$score^2, q = 0.1)
-  scores_male <- rep(1e-12, length(gr_tumor))
+  gr_male$score <- gr_male$score^2
+  gr_male <- transform_GC_Repli(gr_male)
+  #gr_male$score <- transform_gc(gr_male$score^2, q = 0.1)
+  scores_male <- rep(1e-18, length(gr_tumor))
   overlaps_male <- findOverlaps(gr_tumor, gr_male)
   scores_male[queryHits(overlaps_male)] <- gr_male[subjectHits(overlaps_male)]$score
 
   # Merge them with female
-  gr_female$score <- transform_gc(gr_female$score^2, q = 0.1)
-  scores_female <- rep(1e-12, length(gr_tumor))
+  gr_female$score <- gr_female$score^2
+  gr_female <- transform_GC_Repli(gr_female)
+  #gr_female$score <- transform_gc(gr_female$score^2, q = 0.1)
+  scores_female <- rep(1e-18, length(gr_tumor))
   overlaps_female <- findOverlaps(gr_tumor, gr_female)
   scores_female[queryHits(overlaps_female)] <- gr_female[subjectHits(overlaps_female)]$score
 
@@ -222,16 +363,30 @@ merge_with_patients <- function(gr_tumor, tumor){
 
   # Calculate areas
   df_areas <- df_areas %>%
-    left_join(data.frame("donor_sex" = c("female", "male"),
+    left_join(data.frame("donor_sex" = c("male", "female"),
                          "area" = c(sum(width(gr_male) * gr_male$score),
                                     sum(width(gr_female) * gr_female$score))),
               by = "donor_sex")
   colnames(df_areas)[ncol(df_areas)] <- "GCsq"
 
+  # Merge with files
+  df_files <- df_files %>%
+    left_join(data.frame("donor_sex" = c("male", "female"),
+                         "file" = c(paste0(dir_out_cov_normalized, "GCsq_male.bigWig"),
+                                    paste0(dir_out_cov_normalized, "GCsq_female.bigWig"))))
+  colnames(df_files)[ncol(df_files)] <- "GCsq"
+
+  export.bw(gr_male, con = paste0(dir_out_cov_normalized, "GCsq_male.bigWig"))
+  export.bw(gr_female, con = paste0(dir_out_cov_normalized, "GCsq_female.bigWig"))
+
+
+
   ########################################### SAVE FILE!
   TumorData <- list(gr_tumor = gr_tumor,
-                    df_areas = df_areas)
-  saveRDS(TumorData, paste0("data/ICGC_snp_merged/", tumor, "_merged_1kb.rds.gzip"), compress = "gzip")
+                    df_areas = df_areas,
+                    df_files = df_files)
+
+  saveRDS(TumorData, paste0("~/SigPoisProcess/data/ICGC_snp_merged/", tumor, "_merged_1kb.rds.gzip"), compress = "gzip")
 }
 #------------------------------------------------------------------------
 
@@ -239,12 +394,12 @@ merge_with_patients <- function(gr_tumor, tumor){
 std_chrs <- paste0("chr", c(1:22, "X", "Y"))
 
 # Load clinical data
-df_clinical <- read_tsv("data/ICGC_rawdata/pcawg_donor_clinical_August2016_v9.tsv")
+df_clinical <- read_tsv("~/SigPoisProcess/data/ICGC_rawdata/pcawg_donor_clinical_August2016_v9.tsv")
 patiens_male <- df_clinical$icgc_donor_id[df_clinical$donor_sex == "male"]
 patiens_female <- df_clinical$icgc_donor_id[df_clinical$donor_sex == "female"]
 
 # Load covariate names
-dir_covariates <- "data/ENCODE_pvalues/Cancer_covariates/"
+dir_covariates <- "~/SigPoisProcess/data/ENCODE_pvalues/Cancer_covariates/"
 gr_files <- list.files(dir_covariates)
 
 ##########################################
@@ -284,6 +439,8 @@ merge_with_patients(gr_tumor, tumor)
 
 
 LiverTumor <- readRDS("data/ICGC_snp_merged/Liver-HCC_merged_1kb.rds.gzip")
+LiverTumor$df_files
+
 # Merge also each patient with gene expression. These are available for livehcc only.
 gr_tumor <- LiverTumor$gr_tumor
 df_areas <- LiverTumor$df_areas
@@ -298,7 +455,7 @@ for(i in 1:length(patients)){
   print(i)
   # Look at patient i
   gr_tmp <- gr_tumor[gr_tumor$sample == patients[i]]
-  scores <- rep(1e-12, length(gr_tmp))
+  scores <- rep(1e-18, length(gr_tmp))
   # Load gene expression and find overlaps
   tmp_exp <- rtracklayer::import(paste0("data/ICGC_GeneExpr_bigWig/", patients[i], ".bigWig"))
   tmp_exp$score <- transform_scores(tmp_exp$score)
@@ -515,17 +672,17 @@ saveRDS(TumorData, paste0("data/ICGC_snp_merged/Liver-HCC_GeneExpr_merged_1kb.rd
 # gr_male <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/Cancer_covariates/Baseline_male.bigWig")
 # gr_female <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/Cancer_covariates/Baseline_female.bigWig")
 # gr_female <- keepSeqlevels(gr_male, std_chrs[-24], pruning.mode = "coarse")
-# scores <- rep(1e-12, length(gr_tumor))
+# scores <- rep(1e-18, length(gr_tumor))
 #
 # # Merge them with male
 # gr_male$score <- transform_scores(gr_male$score)
-# scores_male <- rep(1e-12, length(gr_tumor))
+# scores_male <- rep(1e-18, length(gr_tumor))
 # overlaps_male <- findOverlaps(gr_tumor, gr_male)
 # scores_male[queryHits(overlaps_male)] <- gr_male[subjectHits(overlaps_male)]$score
 #
 # # Merge them with female
 # gr_female$score <- transform_scores(gr_female$score)
-# scores_female <- rep(1e-12, length(gr_tumor))
+# scores_female <- rep(1e-18, length(gr_tumor))
 # overlaps_female <- findOverlaps(gr_tumor, gr_female)
 # scores_female[queryHits(overlaps_female)] <- gr_female[subjectHits(overlaps_female)]$score
 #
@@ -544,3 +701,59 @@ saveRDS(TumorData, paste0("data/ICGC_snp_merged/Liver-HCC_GeneExpr_merged_1kb.rd
 #                                   sum(width(gr_female) * gr_female$score))),
 #             by = "donor_sex")
 # colnames(df_areas)[ncol(df_areas)] <- "baseline"
+
+
+#blacklist <- rtracklayer::import("ENCFF000KJP.bigBed")
+# blacklist <- rtracklayer::import("hg19-blacklist.v2.bed")
+# gr_tumor <- readRDS("~/SigPoisProcess/data/ICGC_snp_mutations/Skin-Melanoma_snp.rds.gzip")
+#
+# overlaps <- findOverlaps(gr_tumor, blacklist)
+#
+# gr_male <- import("../data/ENCODE_pvalues/Cancer_covariates/Skin-Melanoma_male_H3K9me3.bigWig")
+# #gr_male <- import("../data/ENCODE_pvalues/gc_content/gc_content_1kb.bigWig")
+# gr <- import("../data/ENCODE_pvalues/gc_content/gc_content_1kb.bigWig")
+# hist(gr_male$score, breaks = 100)
+# quantile(gr_male$score)
+#
+# overlaps <- findOverlaps(gr_male, blacklist)
+# quantile(gr_male[queryHits(overlaps)]$score, c(0:10)/10)
+# hist(gr_male[queryHits(overlaps)]$score, breaks = 200)
+#
+# gr_male[queryHits(overlaps)]$score <- 1e-18
+#
+# quantile(gr_male[queryHits(overlaps)]$score, c(0:10)/10)
+# quantile(gr_male$score, c(0:10)/10)
+# round(quantile(scores, c(0:10)/10), 4)
+#
+# scores <- gr_male$score
+# scores[scores < 1e-18] <- 1e-18
+# q <- quantile(scores[scores>1e-18], 0.001)
+# scores[scores>1e-18] <- scores[scores>1e-18] - q
+# scores[scores<1e-18] <- 1e-18
+#
+# scores[scores>1e-18] <- scores[scores>1e-18]/mean(scores[scores>1e-18])
+# hist(scores[scores>1e-18], breaks = 100)
+# scores <- asinh(scores)
+# scores/mean(scores)
+# hist(scores/mean(scores), breaks = 100)
+# hist(asinh(scores), breaks = 100)
+# hist(scores, breaks = 100)
+# quantile(scores)
+# hist(scores, breaks = 100)
+#
+#
+# # Apply variance stabilizing transformation fo ChipSeq and DNAse
+# gr_male <- import("../data/ENCODE_pvalues/Cancer_covariates/Skin-Melanoma_female_POLR2A.bigWig")
+# blacklist <- rtracklayer::import("hg19-blacklist.v2.bed")
+# overlaps <- findOverlaps(gr_male, blacklist)
+# gr_male[queryHits(overlaps)]$score <- 1e-18
+# scores <- gr_male$score
+# scores[scores <= 1e-18] <- 1e-18
+# q <- min(scores[scores>1e-18])
+# scores[scores > 1e-18] <- scores[scores > 1e-18] #- q
+# scores <- asinh(scores)
+# scores[scores>1e-18] <- scores[scores>1e-18]/mean(scores[scores>1e-18])
+#
+# min(scores[scores>1e-18])
+# hist(scores, breaks = 100)
+# hist(gr_male$score, breaks = 100)

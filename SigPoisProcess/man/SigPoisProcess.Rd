@@ -2,39 +2,57 @@
 % Please edit documentation in R/SigPoisProcess.R
 \name{SigPoisProcess}
 \alias{SigPoisProcess}
-\title{Poisson process factorization for topographic-dependent mutational signatures analysis}
+\title{Poisson process factorization for mutational signatures analysis with genomic covariates}
 \usage{
 SigPoisProcess(
   gr_Mutations,
-  df_areas,
+  SignalTrack,
+  CopyTrack,
   K = 10,
   method = "map",
-  compressType = "sig_cov",
   prior_params = SigPoisProcess.PriorParams(),
   controls = SigPoisProcess.controls(),
-  init = SigPoisProcess.init()
+  init = SigPoisProcess.init(),
+  verbose = FALSE,
+  update_Signatures = TRUE,
+  update_Theta = TRUE,
+  update_Betas = TRUE
 )
 }
 \arguments{
-\item{gr_Mutations}{GenomicRanges object contatining covariates and samples}
+\item{gr_Mutations}{GenomicRanges object where \code{mcols} contains}
 
-\item{df_areas}{data.frame containing the total areas of each covariate for each sample}
+\item{SignalTrack}{A matrix whose columns containing the genomic covariates for the whole genome.
+Each row indicates the value of the covariate in a bin.}
+
+\item{CopyTrack}{A matrix whole columns contain the number of copies multiplied by
+the size of the bin. For example, if Patient_01 has 3 copies in the
+first bin and the length of the bin is 2000 base pairs, then set
+\code{'CopyTrack[1,1] <- 3/2* 2000'}. By default, we suggest dividing the copy
+number by 2, so that 1 indicates normal conditions.}
 
 \item{K}{Upper bound to the number of signatures expected in the data}
 
-\item{method}{Which method to use for the estimation. Available options are 'mle', 'map' and 'gibbs'}
+\item{method}{Which method to use for the estimation. Available options are \code{'mle', 'map', 'mcmc'}
+Beware of time}
 
-\item{compressType}{Type of penalty for the automatic selection of priors using compressive hyperpriors. Available type are 'sig' and 'sig_cov'}
-
-\item{prior_params}{The hyperparameters of the prior.}
+\item{prior_params}{The hyperparameters of the prior. \code{SigPoisProcess.PriorParams}}
 
 \item{controls}{Control parameters for each method. See \code{SigPoisProcess.contol}}
 
 \item{init}{Initialization parameters. See \code{SigPoisProcess.init}}
+
+\item{verbose}{Weather to track the output and the logposterior. Setting \code{verbose = TRUE} prints every 10 iterations.}
+
+\item{update_Signatures}{Update the signature matrix in the model. Default is \code{TRUE}}
+
+\item{update_Theta}{Update the Baseline exposures in the model. Default is \code{TRUE}}
+
+\item{update_Betas}{Update the regression coefficients in the model. Default is \code{TRUE}}
 }
 \value{
-An object of class SigPoisProcess.
+An object of class SigPoisProcess
 }
 \description{
-Poisson process factorization for topographic-dependent mutational signatures analysis
+Poisson process factorization for mutational signatures analysis with genomic covariates
 }

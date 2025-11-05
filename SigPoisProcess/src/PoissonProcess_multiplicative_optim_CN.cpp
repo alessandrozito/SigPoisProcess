@@ -30,7 +30,8 @@ List PoissonProcess_optim_CN(arma::mat &R_start,          // Signatures
                              double rho = 0.5,                 // Control the  gradient
                              int maxiter = 20,            // Maximum number of iterations
                              double tol = 1e-6,
-                             bool correct_betas = false) {
+                             bool correct_betas = false,
+                             bool verbose = false) {
 
   // Model details
   int I = R_start.n_rows;        // Number of mutational channels
@@ -141,12 +142,16 @@ List PoissonProcess_optim_CN(arma::mat &R_start,          // Signatures
           arma::accu(- (1 / 2 * Sigma2) % arma::sum(arma::square(Betas), 0)); // Normal prior
         // Evaluate the difference
         maxdiff = std::abs((logLik + logPrior)/(logLik_old + logPrior_old) - 1);
-        Rprintf("Iteration %i - diff %.10f - logposterior %.5f \n", iter + 1, maxdiff, logLik + logPrior);
+        if(verbose){
+          Rprintf("Iteration %i - diff %.10f - logposterior %.5f \n", iter + 1, maxdiff, logLik + logPrior);
+        }
         logLik_old = logLik;
         logPrior_old = logPrior;
       } else if (method == "mle") {
         maxdiff = std::abs(logLik/logLik_old - 1);
-        Rprintf("Iteration %i - diff %.10f - loglikelihood %.5f \n", iter + 1, maxdiff, logLik);
+        if(verbose) {
+          Rprintf("Iteration %i - diff %.10f - loglikelihood %.5f \n", iter + 1, maxdiff, logLik);
+        }
         logLik_old = logLik;
       }
       trace = arma::join_vert(trace, arma::vec({logPrior + logLik}));

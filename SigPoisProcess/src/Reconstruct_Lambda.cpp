@@ -13,7 +13,8 @@ arma::mat Reconstruct_Lambda(arma::mat &SignalTrack,
                              arma::mat &CopyTrack,
                              arma::mat &R,
                              arma::mat &Theta,
-                             arma::mat &Betas) {
+                             arma::mat &Betas,
+                             bool verbose = false) {
 
   int I = R.n_rows;
   int J = Theta.n_cols;
@@ -23,7 +24,9 @@ arma::mat Reconstruct_Lambda(arma::mat &SignalTrack,
   arma::mat Lambda_Mat(Ntrack, J);
   arma::mat ExpTrack = arma::exp(SignalTrack * Betas);
   for(int j = 0; j < J; j++) {
-    Rcout << j<< "\n";
+    if(verbose){
+      Rcout << j<< "\n";
+    }
     arma::mat ExpTrack_j = ExpTrack.each_col() % CopyTrack.col(j);
     ExpTrack_j.each_row() %= Theta.col(j).t();
     Lambda_Mat.col(j) = arma::sum(ExpTrack_j * R.t(), 1);

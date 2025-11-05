@@ -23,6 +23,7 @@ SigPoisProcess_multCN <- function(gr_Mutations,
                                   prior_params = SigPoisProcess_mult.PriorParams(),
                                   controls = SigPoisProcess_mult.controls(),
                                   init = SigPoisProcess_mult.init(),
+                                  verbose = FALSE,
                                   update_Signatures = TRUE,
                                   update_Theta = TRUE,
                                   update_Betas = TRUE){
@@ -166,7 +167,9 @@ SigPoisProcess_multCN <- function(gr_Mutations,
   # Optimization
   ######################################################
   if(method == "map") {
-    cat("Start Optimization \n")
+    if(verbose){
+      cat("Start Optimization \n")
+    }
     maxiter <- controls$maxiter
     n_iter_betas <- controls$n_iter_betas
     tol <- controls$tol
@@ -194,7 +197,8 @@ SigPoisProcess_multCN <- function(gr_Mutations,
                                     method = method,
                                     maxiter = maxiter,
                                     n_iter_betas = n_iter_betas,
-                                    tol = tol)
+                                    tol = tol,
+                                    verbose = verbose)
 
     #--- Postprocess results
     # Signatures
@@ -218,9 +222,11 @@ SigPoisProcess_multCN <- function(gr_Mutations,
   # MCMC
   ######################################################
   if(method == "mcmc") {
-    cat("Start MCMC solution \n")
+    if(verbose){
+      cat("Start MCMC solution \n")
+    }
     nsamples <- controls$nsamples
-    burn_in <- controls$burnin
+    burnin <- controls$burnin
     out <- .PoissonProcess_BayesCN(R_start = R_start,
                                    Theta_start = Theta_start,
                                    Betas_start = Betas_start,
@@ -230,7 +236,7 @@ SigPoisProcess_multCN <- function(gr_Mutations,
                                    SignalTrack = SignalTrack,
                                    CopyTrack = CopyTrack,
                                    nsamples = nsamples,
-                                   burn_in = burn_in,
+                                   burn_in = burnin,
                                    channel_id = channel_id - 1,
                                    sample_id = sample_id - 1,
                                    SigPrior = SigPrior,
@@ -241,7 +247,8 @@ SigPoisProcess_multCN <- function(gr_Mutations,
                                    a0 = a0,
                                    b0 = b0,
                                    c0 = c0,
-                                   d0 = d0)
+                                   d0 = d0,
+                                   verbose = verbose)
 
     # Add dimension names
     dimnames(out$SIGSchain) <- list(NULL,  rownames(SigPrior), colnames(SigPrior))
@@ -252,14 +259,14 @@ SigPoisProcess_multCN <- function(gr_Mutations,
 
     #--- Postprocess results
     # Signatures
-    Sigs <- apply(out$SIGSchain, c(2,3), mean)
+    Sigs <- apply(out$SIGSchain[-c(1:burnin), , ], c(2,3), mean)
     # Loadings
-    Thetas <- apply(out$THETAchain, c(2,3), mean)
+    Thetas <- apply(out$THETAchain[-c(1:burnin), , ], c(2,3), mean)
     # Coefficients
-    Betas <- apply(out$BETASchain, c(2,3), mean)
+    Betas <- apply(out$BETASchain[-c(1:burnin), , ], c(2,3), mean)
     # Mu and sigma
-    Mu <- colMeans(out$MUchain)
-    Sigma2 <- colMeans(out$SIGMA2chain)
+    Mu <- colMeans(out$MUchain[-c(1:burnin), ])
+    Sigma2 <- colMeans(out$SIGMA2chain[-c(1:burnin), ])
 
     #---- Store results in a list
     results$chain <- out
@@ -293,6 +300,7 @@ SigPoisProcess_multCN <- function(gr_Mutations,
                               a0 = a0, b0 = b0, c0 = c0, d0 = d0,
                               SigPrior = SigPrior)
 
+  results$controls <- controls
 
   class(results) <- "SigPoisProcess_mult"
   return(results)
@@ -341,3 +349,89 @@ SigPoisProcess_mult.init <- function(R_start = NULL,
        Sigma2_start = Sigma2_start)
 }
 
+plot.SigPoisProcess <- function(object){
+  p_sig <- plot_96SBSsig(object$Signatures, remove_strip_text_y = TRUE)
+  p_Loads <- plot_avgLoads(object$Betas, object$Xbar, object$AttrSummary)
+  p_sig + p_Loads
+}
+
+#' @export
+plot_96SBSsig <- function(signatures,
+                          lowCI = NULL,
+                          highCI = NULL,
+                          returnList = FALSE,
+                          remove_strip_text_y = FALSE,
+                          palette = c("#40BDEE", "#020202", "#E52925", "#CCC9CA", "#A3CF62", "#ECC5C5")) {
+  signatures <- as.matrix(signatures)
+  names_sig <- rownames(signatures)
+  df_plot <- data.frame(signatures) %>%
+    dplyr::mutate(Channel = names_sig,
+                  Triplet = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                  function(x) paste0(x[c(1,3,7)], collapse = "")),
+                  Mutation = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                   function(x) paste0(x[c(3,4,5)], collapse = "")),
+                  Mutation = as.factor(Mutation)) %>%
+    tidyr::gather(key = "Sig", value = "Prob", -Channel, -Triplet, -Mutation)
+
+  if(!is.null(lowCI) & !is.null(highCI)){
+    df_plot <- df_plot %>%
+      dplyr::left_join(data.frame(lowCI) %>%
+                         dplyr::mutate(Channel = names_sig,
+                                       Triplet = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                                       function(x) paste0(x[c(1,3,7)], collapse = "")),
+                                       Mutation = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                                        function(x) paste0(x[c(3,4,5)], collapse = "")),
+                                       Mutation = as.factor(Mutation)) %>%
+                         gather(key = "Sig", value = "lowCI", -Channel, -Triplet, -Mutation),
+                       by = c("Channel", "Triplet", "Mutation", "Sig")) %>%
+      dplyr::left_join(data.frame(highCI) %>%
+                         dplyr::mutate(Channel = names_sig,
+                                       Triplet = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                                       function(x) paste0(x[c(1,3,7)], collapse = "")),
+                                       Mutation = apply(stringr::str_split(names_sig, "", simplify = TRUE), 1,
+                                                        function(x) paste0(x[c(3,4,5)], collapse = "")),
+                                       Mutation = as.factor(Mutation)) %>%
+                         gather(key = "Sig", value = "highCI", -Channel, -Triplet, -Mutation),
+                       by = c("Channel", "Triplet", "Mutation", "Sig"))
+  }
+
+  p_list <- vector(mode = "list", length = ncol(signatures))
+  for(j in 1:length(p_list)){
+    p <-   ggplot2::ggplot(df_plot %>% dplyr::filter(Sig == colnames(signatures)[j]),
+                           aes(x = Triplet, y = Prob, fill = Mutation))+
+      geom_bar(stat = "identity", width = 0.65) +
+      #geom_hline(yintercept = -0.001)+
+      #geom_segment(x = 1, xend = 1, y = -0.01, yend = Inf, linewidth = 0.3)+
+      facet_grid(Sig~Mutation, scales = "free")+
+      theme_minimal()+
+      scale_fill_manual(values = palette)+
+      theme(legend.position = "none",
+            axis.title = element_blank(),
+            axis.ticks = element_blank(),
+            axis.text.y = element_blank(),
+            plot.margin = margin(1, 1, 1, 1),
+            #axis.text.x = element_text(angle = 90, color = "gray35",
+            #                          vjust = .5, size = 6.5, margin = margin(t = -4)),
+            axis.text.x = element_blank(),
+            panel.grid = element_blank(),
+            panel.spacing.x=unit(0.1, "lines"),
+            panel.spacing.y=unit(0,"lines"),
+            strip.background=element_blank(),
+            axis.line.x.bottom = element_line(linewidth = 0.2),
+            axis.line.y.left = element_line(linewidth = 0.2),
+            strip.text.x = element_blank())
+    if(!is.null(lowCI) & !is.null(highCI)){
+      p <- p +
+        geom_linerange(aes(x = Triplet, ymin =lowCI, ymax = highCI), color = "grey65")
+    }
+    if(remove_strip_text_y){
+      p <- p + theme(strip.text.y = element_blank())
+    }
+    p_list[[j]]  <- p
+  }
+  if(returnList){
+    return(p_list)
+  }
+  p_all <- ggpubr::ggarrange(plotlist = p_list, ncol = 1, common.legend = TRUE, legend = "none")
+  return(p_all)
+}

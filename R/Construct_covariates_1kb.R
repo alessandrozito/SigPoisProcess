@@ -10,7 +10,6 @@ library(GenomicRanges)
 library(GenomicFeatures)
 library(rtracklayer)
 
-
 ############################################# Histone marks and CTCF
 df_histones <- read_tsv("~/SigPoisProcess/data/ENCODE_pvalues/ENCODE_rawdata/Otlu_bigWigfiles_to_use.tsv")[-29, ] %>%
   mutate(donor_sex = case_when(grepl("female", biosample_summary) ~ "female",
@@ -48,16 +47,16 @@ for(m in 1:length(mark)) {
             gr$score <- ((i - 1) * gr$score + gr_tmp$score)/i
           }
         }
+        nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
+        export.bw(gr, con = nm)
       }
-      nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
-      export.bw(gr, con = nm)
     }
   }
 }
 
 
 ############################################# POLR2A
-df_polr2a <- read_tsv("data/ENCODE_pvalues/ENCODE_rawdata/POLR2A_bigWig/POLR2A_accession_files.tsv", skip = 1) %>%
+df_polr2a <- read_tsv("~/SigPoisProcess/data/ENCODE_pvalues/ENCODE_rawdata/POLR2A_bigWig/POLR2A_accession_files.tsv", skip = 1) %>%
   filter(`Preferred Default`,
          !is.na(`Simple biosample summary`)) %>%
   dplyr::select(Organ, Accession, `Simple biosample summary`)%>%
@@ -101,16 +100,16 @@ for(m in 1:length(mark)) {
             gr$score <- ((i - 1) * gr$score + gr_tmp$score)/i
           }
         }
+        nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
+        export.bw(gr, con = nm)
       }
-      nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
-      export.bw(gr, con = nm)
     }
   }
 }
 
 
 #-------------------------------------------- DNAse-seq
-df_DNAse <- read_tsv("data/ENCODE_pvalues/ENCODE_rawdata/DNAse-seq_bigWig/DNAse-seq_BigWig.tsv") %>%
+df_DNAse <- read_tsv("~/SigPoisProcess/data/ENCODE_pvalues/ENCODE_rawdata/DNAse-seq_bigWig/DNAse-seq_BigWig.tsv") %>%
   # Separate the bio sample summary into parts
   mutate(
     `Cancer Type` = case_when(grepl("stomach", organ)  ~ "Stomach-AdenoCA",
@@ -151,9 +150,9 @@ for(m in 1:length(mark)) {
             gr$score <- ((i - 1) * gr$score + gr_tmp$score)/i
           }
         }
+        nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
+        export.bw(gr, con = nm)
       }
-      nm <- paste0(dir_out, tumors[t], "_", sex[s], "_", mark[m], ".bigWig")
-      export.bw(gr, con = nm)
     }
   }
 }
@@ -199,9 +198,9 @@ for(t in 1:length(tumors)){
         gr$score <- ((i - 1) * gr$score + gr_tmp$score)/i
       }
     }
+    nm <- paste0(dir_out, tumors[t], "_Methylation.bigWig")
+    export.bw(gr, con = nm)
   }
-  nm <- paste0(dir_out, tumors[t], "_Methylation.bigWig")
-  export.bw(gr, con = nm)
 }
 
 

@@ -1,24 +1,28 @@
 Package: SigPoisProcess
 Type: Package
-Title: Poisson process factorization for topographic-dependent mutational signatures analysis
+Title: Poisson process factorization for mutational signature analysis with genomic covariates
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Alessadro", "Zito",
+      "Alessandro", "Zito",
       email = "azito@hsph.harvard.edu",
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
+Description: Implements the Poisson Process Factorization method for mutational signature 
+    analysis with genomic covariates, as described by Zito, Parmigiani, and Miller (2025). 
+    This package enables flexible analysis of mutational signatures using an inhomogeneous 
+    Poisson point process where various genomic features shape the intensity function 
+    along the genome.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Imports: Rcpp, RcppArmadillo, LaplacesDemon, RcppHungarian, patchwork, ggnewscale,
+Imports: Rcpp, RcppArmadillo, tibble, tidyr, patchwork, ggnewscale, ggforce,
          ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer,
-         GenomicRanges, BSgenome, Biostrings,BSgenome.Hsapiens.UCSC.hg19
+         GenomicRanges, BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: rmarkdown
+SystemRequirements: C++14
 VignetteBuilder: knitr
 Depends: 
     R (>= 4.0)

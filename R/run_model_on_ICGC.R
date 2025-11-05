@@ -43,12 +43,22 @@ merge_with_patients(gr_tumor, tumor)
 ##########################################
 TumorData <- readRDS("~/SigPoisProcess/data/ICGC_snp_merged/Liver-HCC_merged_1kb.rds.gzip")
 
+library(SigPoisProcess)
+out_Proc_MAP <- SigPoisProcess(gr_Mutations = TumorData$gr_tumor,
+                               df_areas = TumorData$df_areas,
+                               method = "map",
+                               prior_params = list(a = 1.1, alpha = 1.1),
+                               K = 10,
+                               controls = list(tol = 1e-6,
+                                               maxiter = 200,
+                                               merge_move = TRUE))
+plot(out_Proc_MAP)
 
 
+TumorData <- readRDS("~/SigPoisProcess/data/ICGC_snp_merged/Skin-Melanoma_merged_1kb.rds.gzip")
+TumorData$gr_tumor
 
-
-
-
+Xall <- getTotalMutations(TumorData$gr_tumor)
 
 
 genome <- BSgenome.Hsapiens.UCSC.hg19::BSgenome.Hsapiens.UCSC.hg19

@@ -1,2 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.git$             # Git repository folder
+^\.gitignore$       # Git ignore file
+^old_files$         # your nonstandard top-level directory
+^\.DS_Store$        # macOS artifact
