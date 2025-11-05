@@ -10,3 +10,5 @@ Code to reproduce figures, simulation results, and real data analysis results fr
 install.packages("SigPoisProcess_0.1.0.tar.gz")
 library(SigPoisProcess)
 ```
+
+# Description of files coming soon...
