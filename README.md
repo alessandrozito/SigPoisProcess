@@ -18,14 +18,17 @@ library(SigPoisProcess)
 * Figure 1 panel a and - Aggregate mutations at the Mb scale, and relationship between mutations at the 2kb scale and signal from H3K9me3
   - `R/reproduce_Figure_1_panels_a_b.R`
 
-### Simulation
-* Figure 2, and Figure S1 in the Supplementary material - Main simulation
-  - `R/main_Simulation_analysis.R`
+### Simulation study in the paper
 
-### Application
+* Figure 2, and Figure S1, Table S1 and S2 in the Supplementary material - Main simulation
+  - `R/Simulaton.R` 
+  - `R/Simulation_functions.R`
+
+### Application 1 - de novo signature extraction
+
 * Figur
 
-
+### Application 2 - Fixed signatures analysiss
 
 
 

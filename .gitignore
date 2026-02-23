@@ -12,7 +12,17 @@ SigPoisProcess/.RData
 *.Rproj
 SigPoisProcess.Rcheck/
 
-data/
+# Ignore everything in data/
+data/*
+
+# Except tdata for application and data for figure 1
+!data/data_for_application/
+!data/data_for_application/**
+
+!data/data_for_figure1/
+!data/data_for_figure1/**
+
+
 old_files/
 output/
 

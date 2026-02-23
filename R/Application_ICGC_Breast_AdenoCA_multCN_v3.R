@@ -1,7 +1,4 @@
-# Sys.setenv(OMP_NUM_THREADS = 1)
-# Sys.setenv(MKL_NUM_THREADS = 1)
-# Sys.setenv(BLAS_NUM_THREADS = 1)
-#Sys.setenv(OPENBLAS_NUM_THREADS = 1)
+# Set the number of threads
 library(RhpcBLASctl)
 blas_set_num_threads(12)
 omp_set_num_threads(1)
