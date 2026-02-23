@@ -20,18 +20,26 @@ SigPoisProcess(
 )
 }
 \arguments{
-\item{gr_Mutations}{GenomicRanges object where \code{mcols} contains}
+\item{gr_Mutations}{GenomicRanges object where  \code{ranges(gr_Mutations)} contains
+the \code{seqnames} (chromosome names), the \code{ranges} (unique positions),
+and the  \code{strand} (use \code{*} for this method).
+Then, \code{mcols} contains the following columns:
+\code{sample}, which indicates the patient; \code{channel}, which
+indicates the mutation type, e.g. A[C>T]C; the remaining columns must
+be numeric and correspond to the covariate values at the genomic position in \code{ranges}.}
 
 \item{SignalTrack}{A matrix whose columns containing the genomic covariates for the whole genome.
-Each row indicates the value of the covariate in a bin.}
+Each row indicates the value of the covariate in a bin. Columns names of this matrix must be
+equal to the colvariate values in \code{mcols(gr_Mutations)}.}
 
 \item{CopyTrack}{A matrix whole columns contain the number of copies multiplied by
 the size of the bin. For example, if Patient_01 has 3 copies in the
 first bin and the length of the bin is 2000 base pairs, then set
 \code{'CopyTrack[1,1] <- 3/2* 2000'}. By default, we suggest dividing the copy
-number by 2, so that 1 indicates normal conditions.}
+number by 2, so that 1 indicates normal conditions. Column names must be the same
+as the unique values in \code{mcols(gr_Mutations)$sample}.}
 
-\item{K}{Upper bound to the number of signatures expected in the data}
+\item{K}{Upper bound to the number of signatures expected in the data. Default is \code{K = 10}.}
 
 \item{method}{Which method to use for the estimation. Available options are \code{'mle', 'map', 'mcmc'}
 Beware of time}

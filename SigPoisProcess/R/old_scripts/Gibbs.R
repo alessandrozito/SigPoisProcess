@@ -304,4 +304,125 @@ sample_Post_a <- function(nsamples, epsilon, Betas, Mu_all, X_bar) {
 }
 
 
+simulation_dir <- "~/CompressiveNMF/output/Compressive_vs_InfiniteFactors/"
+data_all <- readRDS("~/CompressiveNMF/output/Compressive_vs_InfiniteFactors/Scenario_100_overdisp_0_Knew_6_theta_100/data.rds.gzip")
+data <- data_all[[1]]
+
+X <- CompressiveNMF::Mutations_21breast
+library(CompressiveNMF)
+set.seed(42)
+res <- CompressiveNMF_randa(data$X, K = 15, nsamples = 1000,
+                            random_a = TRUE, c0 = 100, d0 = 100,
+                            burnin = 5000, cutoff_excluded = 0)
+plot_SBS_signature(res$Signatures[, res$RelWeights > 0.05])
+plot(res$mcmc_out[[1]]$Mu[, "Sig_new15"])
+
+round(res$RelWeights, 5)
+round(res$RelWeights[res$RelWeights>0.05], 5)
+plot(res$mcmc_out[[1]]$a, type = "l")
+
+
+Mu <- res$RelWeights
+Theta <- res$Weights
+
+a <- 1.2
+logPost_a <-  function(x, Mu, Theta, epsilon, c0, d0){
+  K <- length(Mu)
+  J <- ncol(Theta)
+  K * J * x * log(x) + (K * J * x + K)*log(epsilon*x*J) - K * J * lgamma(x) - K * lgamma(x * J + 1) -
+   x * (2 * J * sum(log(Mu)) - sum(log(Theta)) + sum(rowSums(Theta)/Mu) +
+          epsilon * J * sum(1/Mu)) + (c0 - 1) * log(x) - x * d0
+}
+
+logPost_a(1.2, Mu, Theta, epsilon = 0.001, c0 = 1, d0 = 1)
+
+sample_Post_a <- function(nsamples, Mu, Theta, epsilon, c0, d0,  a_start = 1) {
+  UppU <- -nlminb(start = a_start, objective = function(x) -logPost_a(x, Mu, Theta, epsilon, c0, d0),
+                  lower = 1e-6)$objective
+
+  UppV <- -nlminb(start = a_start, objective = function(x) -logPost_a(x, Mu, Theta, epsilon, c0, d0) - 2 * log(x),
+                  lower = 1e-6)$objective
+
+  s <- exp(0.5 * (UppV - UppU))
+  samples <- rep(NA, nsamples)
+  for(n in 1:nsamples){
+    accepted <- 0
+    while(accepted == 0) {
+      u <- runif(1); v <- runif(1)
+      x <- s * v / u
+      if(log(u) < 0.5 * (logPost_a(x, Mu, Theta, epsilon, c0, d0) - UppU)){
+        samples[n] = x
+        accepted = 1
+      }
+    }
+  }
+  samples
+}
+
+epsilon <- 0.001
+c0 <- 1
+d0 <- 1
+my_a <- sample_Post_a(5000, Mu, Theta, epsilon, c0, d0)
+
+library(rstan)
+
+stan_code <- "
+data {
+  int<lower=1> K;
+  int<lower=1> J;
+  real<lower=0> c0;
+  real<lower=0> d0;
+  real<lower=0> eps;
+  vector<lower=0>[K] mu;
+  matrix<lower=0>[K, J] theta;
+}
+parameters {
+  real<lower=0> a;
+}
+model {
+  a ~ gamma(c0, d0);
+  mu ~ inv_gamma(a * J + 1, eps * a * J);
+  for (k in 1:K)
+    for (j in 1:J)
+      theta[k,j] ~ gamma(a, a / mu[k]);
+}
+"
+
+stan_data <- list(
+  K = nrow(Theta),
+  J = ncol(Theta),
+  c0 = 1,
+  d0 = 1,
+  eps = 0.001,
+  mu = Mu,
+  theta = Theta
+)
+
+fit <- stan(
+  model_code = stan_code,
+  data = stan_data,
+  seed = 123,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000
+)
+
+ext <- extract(fit)
+
+print(fit, pars = "a")
+# posterior samples of a:
+a_draws <- extract(fit, pars = "a")$a
+plot(density(a_draws))
+lines(density(my_a), col = "red")
+qqplot(a_draws, my_a)
+
+rAlpha_ru <- function(nsamples = 1, Mu, Theta, epsilon = 0.001, c0 = 1, d0 = 1){
+  x2 <- suppressWarnings(rust::ru(logf = logPost_a, d = 1, n = nsamples,
+                                  lower = 1e-12, init = 1,
+                                  Mu = Mu, Theta = Theta, epsilon = epsilon,
+                                  c0 = c0, d0 = d0))
+  return(c(x2$sim_vals))
+}
+
+
 

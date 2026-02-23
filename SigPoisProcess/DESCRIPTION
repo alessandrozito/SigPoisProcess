@@ -9,17 +9,18 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: Implements the Poisson Process Factorization method for mutational signature 
-    analysis with genomic covariates, as described by Zito, Parmigiani, and Miller (2025). 
+Description: This package implements the Poisson Process Factorization (PPF) method 
+    for mutational signature analysis which also adds genomic covariates. 
     This package enables flexible analysis of mutational signatures using an inhomogeneous 
-    Poisson point process where various genomic features shape the intensity function 
-    along the genome.
+    Poisson point process where various genomic covariates (i.e. chromatin accessibility, 
+    histone modifications, replication timing) shape the intensity function 
+    along the genome via a log-linear model. 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: Rcpp, RcppArmadillo, tibble, tidyr, patchwork, ggnewscale, ggforce,
-         ggplot2, dplyr, stringr, foreach, doParallel, knitr, magrittr, sigminer,
-         GenomicRanges, BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19
+         ggplot2, dplyr, stringr, knitr, magrittr, GenomicRanges, sigminer,
+         BSgenome, Biostrings, BSgenome.Hsapiens.UCSC.hg19
 LinkingTo: Rcpp, RcppArmadillo
 Suggests: rmarkdown
 SystemRequirements: C++14

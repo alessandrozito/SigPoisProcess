@@ -1044,7 +1044,8 @@ df_pos <- find_mutations_in_region(data, i, j, chr,
                                    ThetaCisFix$mean,
                                    BetasCisFix$mean)
 
-window <- 1
+window <- 10
+options(scipen=99)
 p_intensity <- df_mod %>%
   mutate(across(where(is.numeric), ~ zoo::rollmean(.x, fill = NA, k = window,
                                                    align = "center"))) %>%
@@ -1054,10 +1055,11 @@ p_intensity <- df_mod %>%
   gather(key = "Sig", value = "Prob", - region, -method) %>%
   filter(Sig %in% c("SBS3", "SBS5", "SBS8")) %>%#head(names(sort(pr_const, decreasing = TRUE)), 4))%>%
   ggplot() +
-  geom_line(aes(x = region, y = Prob, color = Sig, linetype = method, alpha = method), linewidth = 0.6) +
+  geom_line(aes(x = region, y = Prob, color = Sig, linetype = method, alpha = method),
+            linewidth = 0.6) +
   scale_color_manual(name = "Signature",
                      values = c("red", "antiquewhite3", "blue")) +
-  scale_alpha_manual(values = c(0.5, 1))+
+  scale_alpha_manual(values = c(1, 1))+
   ylab("Expected mutations in 2kb region") +
   #xlab(paste0("Genomic regions in ",  chr, "-",
   #            region_start,":", region_end, " (2kb)")) +
@@ -1407,12 +1409,106 @@ df_TrackSig %>%
 
 
 
+#-------------------------------------------------------------------------------
+# Plots for the job talk
+window <- 10
+options(scipen=99)
+
+# Plot 1 --- only constant values
+p_intensity_constant <- df_mod %>%
+  mutate(across(where(is.numeric), ~ zoo::rollmean(.x, fill = NA, k = window,
+                                                   align = "center"))) %>%
+  mutate(region = (0:(nrow(df_mod) - 1))*2000 + region_start,
+         method = "PoissonProcess") %>%
+  bind_rows(df_const) %>%
+  gather(key = "Sig", value = "Prob", - region, -method) %>%
+  filter(Sig %in% c("SBS3", "SBS5", "SBS8"), method == "Standard NMF") %>%
+  ggplot() +
+  geom_line(aes(x = region, y = Prob, color = Sig, linetype = method, alpha = method),
+            linewidth = 0.6) +
+  scale_color_manual(name = "Signature",
+                     values = c("red", "antiquewhite3", "blue")) +
+  scale_alpha_manual(values = c(1, 1))+
+  ylab("Expected mutations in 2kb region") +
+  facet_wrap(~paste0("Mutation type ", i, " - Patient ", j)) +
+  theme_minimal() +
+  scale_linetype_manual(values = "dashed") +
+  scale_x_continuous(expand = c(0,0)) +
+  geom_rug(data = df_pos,
+           aes(x = positions, color = Sig),
+           sides = "b", # "b" for bottom
+           inherit.aes = FALSE,
+           length = grid::unit(0.035, "npc"),
+           linewidth = 1.2)+
+  theme(axis.title.x = element_blank()) +
+  ylim(0, 0.00034)
+p_intensity_constant
 
 
+p_intensity <- df_mod %>%
+  mutate(across(where(is.numeric), ~ zoo::rollmean(.x, fill = NA, k = window,
+                                                   align = "center"))) %>%
+  mutate(region = (0:(nrow(df_mod) - 1))*2000 + region_start,
+         method = "PoissonProcess") %>%
+  bind_rows(df_const) %>%
+  gather(key = "Sig", value = "Prob", - region, -method) %>%
+  filter(Sig %in% c("SBS3", "SBS5", "SBS8")) %>%
+  ggplot() +
+  geom_line(aes(x = region, y = Prob, color = Sig, linetype = method, alpha = method),
+            linewidth = 0.6) +
+  scale_color_manual(name = "Signature",
+                     values = c("red", "antiquewhite3", "blue")) +
+  scale_alpha_manual(values = c(1, 1))+
+  ylab("Expected mutations in 2kb region") +
+  scale_linetype_manual(values = c("solid", "dashed")) +
+  facet_wrap(~paste0("Mutation type ", i, " - Patient ", j)) +
+  theme_minimal() +
+  scale_x_continuous(expand = c(0,0)) +
+  geom_rug(data = df_pos,
+           aes(x = positions, color = Sig),
+           sides = "b", # "b" for bottom
+           inherit.aes = FALSE,
+           length = grid::unit(0.035, "npc"),
+           linewidth = 1.2)+
+  theme(axis.title.x = element_blank()) +
+  ylim(0, 0.00034)
+p_intensity
 
 
+p_panels_const <- p_intensity_constant/p_track + plot_layout(heights = c(1.6, 1))
+p_panels_all <- p_intensity/p_track + plot_layout(heights = c(1.6, 1))
+#ggsave(plot = p_panels, filename = "~/SigPoisProcess/figures/Track_and_mutations.png", width = 9.40, height = 6.42)
+ggsave(plot = p_panels_const, filename = "~/SigPoisProcess/figures/Track_and_mutations_Constant_jobTalk.png",
+       width = 11.68, height = 5.91)
+ggsave(plot = p_panels_all, filename = "~/SigPoisProcess/figures/Track_and_mutations_All_jobTalk.png",
+       width = 11.68, height = 5.91)
 
 
+#-------------------------------------------------------------------------------
+sigs <- CompressiveNMF::COSMIC_v3.4_SBS96_GRCh37
+
+library(tidyverse)
+library(scales)
+plot_192RNAsig2(sigs[, "SBS2"])+
+  scale_y_continuous(labels = label_number(accuracy = 0.01))
+ggsave("")
+plot_192RNAsig2(sigs[, "SBS4"])+
+  scale_y_continuous(labels = label_number(accuracy = 0.01))
+plot_192RNAsig2(sigs[, "SBS7d"])+
+  scale_y_continuous(labels = label_number(accuracy = 0.01))
+
+
+set.seed(100)
+allMuts <- rpois(96, lambda = sigs[, c("SBS2", "SBS4", "SBS7d")] %*% c(100, 400, 500))
+names(allMuts) <- rownames(sigs)
+plot_192RNAsig2(allMuts)
+
+
+tcga <- TCGAmutations::tcga_load(study = "LUAD")
+NMFmatrices <- sigminer::sig_tally(tcga)
+?sigminer::sig_tally
+library(BSgenome.Hsapiens.UCSC.hg19)
+X <- t(NMFmatrices$nmf_matrix)
 
 
 

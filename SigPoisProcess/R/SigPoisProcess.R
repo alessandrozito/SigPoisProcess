@@ -1,14 +1,22 @@
 #' Poisson process factorization for mutational signatures analysis with genomic covariates
 #'
-#' @param gr_Mutations GenomicRanges object where \code{mcols} contains
+#' @param gr_Mutations GenomicRanges object where  \code{ranges(gr_Mutations)} contains
+#'                    the \code{seqnames} (chromosome names), the \code{ranges} (unique positions),
+#'                    and the  \code{strand} (use \code{*} for this method).
+#'                    Then, \code{mcols} contains the following columns:
+#'                    \code{sample}, which indicates the patient; \code{channel}, which
+#'                    indicates the mutation type, e.g. A[C>T]C; the remaining columns must
+#'                    be numeric and correspond to the covariate values at the genomic position in \code{ranges}.
 #' @param SignalTrack A matrix whose columns containing the genomic covariates for the whole genome.
-#'                    Each row indicates the value of the covariate in a bin.
+#'                    Each row indicates the value of the covariate in a bin. Columns names of this matrix must be
+#'                    equal to the colvariate values in \code{mcols(gr_Mutations)}.
 #' @param CopyTrack A matrix whole columns contain the number of copies multiplied by
 #'                  the size of the bin. For example, if Patient_01 has 3 copies in the
 #'                  first bin and the length of the bin is 2000 base pairs, then set
 #'                  \code{'CopyTrack[1,1] <- 3/2* 2000'}. By default, we suggest dividing the copy
-#'                  number by 2, so that 1 indicates normal conditions.
-#' @param K Upper bound to the number of signatures expected in the data
+#'                  number by 2, so that 1 indicates normal conditions. Column names must be the same
+#'                  as the unique values in \code{mcols(gr_Mutations)$sample}.
+#' @param K Upper bound to the number of signatures expected in the data. Default is \code{K = 10}.
 #' @param method Which method to use for the estimation. Available options are \code{'mle', 'map', 'mcmc'}
 #'               Beware of time
 #' @param prior_params The hyperparameters of the prior. \code{SigPoisProcess.PriorParams}
@@ -48,7 +56,8 @@ SigPoisProcess <- function(gr_Mutations,
 
   # Check that colnames of SignalTrack and colnames of X match
   if(any(colnames(SignalTrack) != colnames(X))){
-    stop("Must have colnames(SignalTrack) == colnames(X))")
+    stop("Must have colnames(SignalTrack) == colnames(X)), where X is
+        are the numeric variables in GenomicRanges::mcols(gr_Mutations)")
   }
 
   # Extract the matrix of aggregated mutations
@@ -361,7 +370,7 @@ SigPoisProcess.controls <- function(nsamples = 2000,
        n_iter_betas = n_iter_betas)
 }
 
-#' Initial values for the estimation algorithm
+#' Initial values for the algorithms
 #'
 #' @param R_start Start value for the signature matrix.
 #' @param Theta_start Start value for the baseline  matrix.
@@ -395,3 +404,19 @@ sample_signatures <- function(Alpha) {
   colnames(R) <- colnames(Alpha)
   return(R)
 }
+
+
+#' Function to obtain the aggregate mutation matrix for NMF
+#'
+#' @param gr_Mutations A genomic ranges object containing the mutations,
+#'                    the samples, and the coordinates.
+#'
+#' @export
+getTotalMutations <- function(gr_Mutations){
+  Mutations <- as.data.frame(GenomicRanges::mcols(gr_Mutations)) %>%
+    dplyr::select(sample, channel)
+  #Mutations$channel <- as.factor(Mutations$channel)
+  X_all <- table(Mutations$channel, Mutations$sample)
+  matrix(X_all, nrow = nrow(X_all), dimnames = dimnames(X_all))
+}
+

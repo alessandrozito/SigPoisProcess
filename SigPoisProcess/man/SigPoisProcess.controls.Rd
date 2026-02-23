@@ -9,7 +9,7 @@ SigPoisProcess.controls(
   burnin = 2000,
   maxiter = 5000,
   n_iter_betas = 2,
-  tol = 1e-06
+  tol = 0.000001
 )
 }
 \arguments{

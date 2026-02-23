@@ -2,7 +2,7 @@
 % Please edit documentation in R/SigPoisProcess.R
 \name{SigPoisProcess.init}
 \alias{SigPoisProcess.init}
-\title{Initial values for the estimation algorithm}
+\title{Initial values for the algorithms}
 \usage{
 SigPoisProcess.init(
   R_start = NULL,
@@ -24,5 +24,5 @@ SigPoisProcess.init(
 \item{Sigma2_start}{Start value for the variance of the regression coefficients.}
 }
 \description{
-Initial values for the estimation algorithm
+Initial values for the algorithms
 }
