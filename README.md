@@ -19,20 +19,11 @@ library(SigPoisProcess)
   - `R/reproduce_Figure_1_panels_a_b.R`
 
 ### Simulation
-* Figure 2, and Figure S6.1 to S6.6 in the Supplementary material - Main simulation
+* Figure 2, and Figure S1 in the Supplementary material - Main simulation
   - `R/main_Simulation_analysis.R`
-* Figure S6.7 - Sparse indel simulation
-  - `R/Simulation_sparsity_indels_suppl.R`
-* Figure S7.2, S7.3 and S7.4 - Fixed strength vs Compressive hyperprior
-  - `R/Simulation_fixed_vs_compressive.R`
-* Figure S7.5 - Sensitivity to epsilon and K
-  - `R/Simulation_sensitivity_epsilon_K.R`
-* Figure S7.6 - Sensitivity to a and alpha
-  - `R/Simulation_sensitivity_alpha_a_suppl.R`
 
-
-
-
+### Application
+* Figur
 
 
 

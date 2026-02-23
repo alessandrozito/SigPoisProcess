@@ -1,8 +1,9 @@
 ################################################################################
-# This file runs the simulation in Section 5 to reproduce the following:
-# --- Table 2: Perfomance comparison of the models under two scenarios
-# --- Figure 2: Track on the signatures
-# --- Table 1.2: xxx
+# This file runs the simulation in Section 4 to reproduce the following:
+# --- Figure 2: Results of the simulation
+# --- Figure S1: Supplemental results of the simulation
+# --- Table S1 and S2: time, iterations, and effective sample sizes
+#                      for the simulation
 ################################################################################
 
 #--- Load the librraries
@@ -19,9 +20,10 @@ library(doParallel)
 library(corrplot)
 library(knitr)
 
-# Load the R package sigPoisProcess.
-devtools::document()
+# Load the SigPoisProcess package
+library(SigPoisProcess)
 
+#--- Useful functions
 open_rds_file <- function(file){
   if(file.exists(file)){
     out <- readRDS(file)
