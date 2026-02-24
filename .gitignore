@@ -4,30 +4,34 @@ SigPoisProcess/.Rproj.user
 SigPoisProcess/.Rhistory
 .RData
 SigPoisProcess/.RData
+SigPoisProcess/R/old_scripts
 .Ruserdata
-
-
 .DS_Store
-
 *.Rproj
 SigPoisProcess.Rcheck/
 
-# Ignore everything in data/
-data/*
 
-# Except tdata for application and data for figure 1
+# Data files
+data/*
 !data/data_for_application/
 !data/data_for_application/**
-
 !data/data_for_figure1/
 !data/data_for_figure1/**
 
 
-old_files/
 
+
+# Output files
 output/*
 !output/Simulation/simulation_results2.tsv
+!output/Application/
+!output/Application/Breast_DeNovo/
+!output/Application/Breast_DeNovo/**
+output/Application/Breast_DeNovo/MapSolutions/Replicate03/MCMCSolution.rds.gzip
 
+
+# Additional folders with old files
+old_files/
 R/old_scripts/
 R/old_cpp_files/
 

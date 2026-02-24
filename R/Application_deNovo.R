@@ -195,7 +195,7 @@ if(rerun_MCMC){
   # Load the MAP
   outMAP <- readRDS(paste0(out_dir, "MAPSolution.rds.gzip"))
   #------ MCMC
-  nsamples_all <- 10000
+  nsamples_all <- 10600
   nsamples_current <- 0
   nsamples <- 100
   # Run the model storing the output every 100 iterations
@@ -267,31 +267,68 @@ if(rerun_MCMC){
 ################################################################
 rerun_postprocessing <- FALSE # <--- set to true
 if(rerun_postprocessing) {
+  #------ Load the MCMC output
+  outMCMC <- readRDS("~/SigPoisProcess/output/Application_Breast/MapSolutions/Replicate03/MCMCSolution.rds.gzip")
+
+  ###############################################################################
+  # Calculate mean and credible intervals
+  burnin <- c(1:7600) # There are 7600 initial samples that I drew for burnin. Keep the last 3000
+
+  sigma2 <- colMeans(outMCMC$chain$SIGMA2chain[-burnin, ])
+  mu <- colMeans(outMCMC$chain$MUchain[-burnin, ])
+
+  # Calculate posterior means and 95% credible intervals
+  SigsCis <- get_PosteriorCI(outMCMC$chain$SIGSchain[-burnin, , ])
+  ThetaCis <- get_PosteriorCI(outMCMC$chain$THETAchain[-burnin, , ])
+  BetasCis <- get_PosteriorCI(outMCMC$chain$BETASchain[-burnin, , ])
+  MuCis <- list(mean = mu,
+                lowCI = apply(outMCMC$chain$MUchain[-burnin, ], 2, function(x) quantile(x, 0.025)),
+                highCI = apply(outMCMC$chain$MUchain[-burnin, ], 2, function(x) quantile(x, 0.975)))
+  sigma2Cis <- list(mean = sigma2,
+                    lowCI = apply(outMCMC$chain$SIGMA2chain[-burnin, ], 2, function(x) quantile(x, 0.025)),
+                    highCI = apply(outMCMC$chain$SIGMA2chain[-burnin, ], 2, function(x) quantile(x, 0.975)))
+
+  # Save all in a single object
+  resultsMCMC_denovo <- list("Signatures" = SigsCis,
+                             "Baselines" = ThetaCis,
+                             "Betas" = BetasCis,
+                             "Mu" = MuCis,
+                             "sigma2" = sigma2Cis,
+                             "logPost" = outMCMC$chain$logPostchain,
+                             "logPrior" = outMCMC$chain$logPriorchain,
+                             "logLik" = outMCMC$chain$logLikchain)
+  # Save the output for plotting
+  saveRDS(object = resultsMCMC_denovo, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/resultsMCMC_denovo.rds.gzip", compress = "gzip")
+
+  ###############################################################################
+  # Save the post burnin chain
+  postBurnChain_MCMC_denovo <- list("Signatures" = outMCMC$chain$SIGSchain[-burnin, , ],
+                                    "Baselines" = outMCMC$chain$THETAchain[-burnin, , ],
+                                    "Betas" = outMCMC$chain$BETASchain[-burnin, , ],
+                                    "Mu" = outMCMC$chain$MUchain[-burnin, ],
+                                    "sigma2" = outMCMC$chain$SIGMA2chain[-burnin, ],
+                                    "logPost" = outMCMC$chain$logPostchain[-burnin],
+                                    "logPrior" = outMCMC$chain$logPriorchain[-burnin],
+                                    "logLik" = outMCMC$chain$logLikchain[-burnin])
+  saveRDS(object = postBurnChain_MCMC_denovo, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/postBurnin_MCMC_denovo.rds.gzip", compress = "gzip")
+
 
 }
-outMCMC <- readRDS("~/SigPoisProcess/output/Application_Breast/MapSolutions/Replicate03/MCMCSolution.rds.gzip")
-
-# To avoid memory issues, we simply save only the posterior mean and credible
-# intervals
-burnin <- c(1:7600) # There are 7600 initial samples that I drew for burnin. Keep the last 3000
-
-sigma2 <- colMeans(outMCMC$chain$SIGMA2chain[-burnin, ])
-mu <- colMeans(outMCMC$chain$MUchain[-burnin, ])
-
-# Calculate posterior means and 95% credible intervals
-SigsCis <- get_PosteriorCI(outMCMC$chain$SIGSchain[-burnin, , ])
-ThetaCis <- get_PosteriorCI(outMCMC$chain$THETAchain[-burnin, , ])
-BetasCis <- get_PosteriorCI(outMCMC$chain$BETASchain[-burnin, , ])
-MuCis <- list(mean = mu,
-              lowCI = apply(outMCMC$chain$MUchain[-burnin, ], 2, function(x) quantile(x, 0.025)),
-              highCI = apply(outMCMC$chain$MUchain[-burnin, ], 2, function(x) quantile(x, 0.975)))
-sigma2Cis <- list(mean = sigma2,
-                  lowCI = apply(outMCMC$chain$SIGMA2chain[-burnin, ], 2, function(x) quantile(x, 0.025)),
-                  highCI = apply(outMCMC$chain$SIGMA2chain[-burnin, ], 2, function(x) quantile(x, 0.975)))
-
-# Save all in a single object
 
 
+###############################################################################
+# Calculate effective sample sizes
+mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
+ThetaChain_adj <- outMCMC$chain$THETAchain[-c(1:7600), mu > 0.01, ]
+array_AllCopy <- array(NA, dim = c(3000, 9, 113))
+for(s in 1:3000) ThetaChain_adj[s,,] <- mat_allCopy * ThetaChain_adj[s, , ]
+
+REffects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGSchain[, , mu > 0.01], burnin = 7600)
+ThetaEffects <- get_PosteriorEffectiveSize(ThetaChain_adj, burnin = 0)
+BetasEffects <- get_PosteriorEffectiveSize(outMCMC$chain$BETASchain[, , mu > 0.01], burnin = 7600)
+Sigma2Effects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGMA2chain[, mu > 0.01], burnin = 7600)
+MuEffects <- get_PosteriorEffectiveSize(outMCMC$chain$MUchain[, mu > 0.01], burnin = 7600)
+lpEffects <- get_PosteriorEffectiveSize(outMCMC$chain$logPostchain, burnin = 7600)
 
 #---- Calculate the posterior effective sample sizes
 mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
