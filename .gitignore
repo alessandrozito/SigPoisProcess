@@ -25,7 +25,7 @@ data/*
 
 old_files/
 
-output/
+output/*
 !output/Simulation/simulation_results2.tsv
 
 R/old_scripts/
