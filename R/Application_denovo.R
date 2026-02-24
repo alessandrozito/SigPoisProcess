@@ -3,10 +3,11 @@ library(RhpcBLASctl)
 blas_set_num_threads(12)
 omp_set_num_threads(1)
 ################################################################################
-# This file runs the Application in Section 5. It reproduces the following:
-# --- Table 2: Perfomance comparison of the models under two scenarios
-# --- Figure 2: Track on the signatures
-# --- Table 1.2: xxx
+# This file runs the denovo application of Section 5.
+# The final files are:
+#    -  resultsMCMC_denovo.rds.gzip: MCMC posterior summaries
+#    -  postBurnin_MCMC_denovo.rds.gzip: MCMC chain post burnin
+# They will be used to extract figures and outputs.
 ################################################################################
 
 #---- Load packages
@@ -312,7 +313,6 @@ if(rerun_postprocessing) {
                                     "logLik" = outMCMC$chain$logLikchain[-burnin])
   saveRDS(object = postBurnChain_MCMC_denovo, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/postBurnin_MCMC_denovo.rds.gzip", compress = "gzip")
 
-
 }
 
 
@@ -382,7 +382,8 @@ if(rerun_MAP_fixedSigs) {
 
 
 rerun_MCMC_fixedSigs <- TRUE
-force_zero <- FALSE # <--- force Betas to zero in signatures that are compressed, for the MCMC starting point
+force_zero <- FALSE # <--- force Betas to zero in signatures that are compressed,
+# for the MCMC starting point
 start_from_map <- FALSE
 if(rerun_MCMC_fixedSigs) {
   # Load the MAP

@@ -19,8 +19,6 @@ data/*
 !data/data_for_figure1/**
 
 
-
-
 # Output files
 output/*
 !output/Simulation/simulation_results2.tsv

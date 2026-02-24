@@ -28,8 +28,8 @@ create_directory <- function(dir) {
 #----- Function to add a weight to each bin, at 2kb resolution
 add_bin_weights <- function(gr){
   # Import blacklist and regions with gaps
-  blacklist <- rtracklayer::import("~/SigPoisProcess/data/ENCODE_pvalues/hg19-blacklist.v2.bed")
-  gap_gr <- rtracklayer::import("~/SigPoisProcess/data/regions_to_exclude/gaps_hg19.bed")
+  blacklist <- rtracklayer::import("~/SigPoisProcess/data/data_for_application/hg19-blacklist.v2.bed")
+  gap_gr <- rtracklayer::import("~/SigPoisProcess/data/data_for_application/gaps_hg19.bed")
 
   # Adjust bin sizes to remove blacklist and gaps
   BinWeight <- width(gr)
@@ -106,13 +106,13 @@ build_SignalTrack <- function(tilewidth = 2000, type = "avg"){
 
   # ---- GC content
   print("GC")
-  file <- "~/SigPoisProcess/data/ENCODE_pvalues/gc_content/gc_content_1kb.bigWig"
+  file <- "~/SigPoisProcess/data/data_for_application/gc_content_1kb.bigWig"
   gr <- bin_gr(import(file), genome_aggreg, std_chrs)
   gr_SignalTrack$GC <- gr$score
 
   # ---- Methylation
   print("Methylation")
-  file <- "~/SigPoisProcess/data/ENCODE_pvalues/Cancer_covariates/Breast-Cancer_Methylation.bigWig"
+  file <- "~/SigPoisProcess/data/data_for_application/Breast-Cancer_Methylation.bigWig"
   gr <- bin_gr(import(file), genome_aggreg, std_chrs)
   gr_SignalTrack$Methyl <- gr$score
 
@@ -123,16 +123,16 @@ build_SignalTrack <- function(tilewidth = 2000, type = "avg"){
     if(type == "avg") {
       # Calculate the average between tissue and cell line.
       # Tissue
-      file_tissue <- paste0("~/SigPoisProcess/data/data_for_application/Cancer_covariates/Breast-Cancer_tissue_", mark, "_2kb.bigWig")
+      file_tissue <- paste0("~/SigPoisProcess/data/data_for_application/Breast-Cancer_tissue_", mark, "_2kb.bigWig")
       gr_tissue <- bin_gr(import(file_tissue), genome_aggreg, std_chrs)
       # Cell line
-      file_cell <- paste0("~/SigPoisProcess/data/data_for_application/Cancer_covariates/Breast-Cancer_cell_", mark, "_2kb.bigWig")
+      file_cell <- paste0("~/SigPoisProcess/data/data_for_application/Breast-Cancer_cell_", mark, "_2kb.bigWig")
       gr_cell <- bin_gr(import(file_cell), genome_aggreg, std_chrs)
       # Average
       gr_SignalTrack$mark <- (gr_tissue$score + gr_cell$score)/2
       colnames(mcols(gr_SignalTrack))[ncol(mcols(gr_SignalTrack))] <- mark
     } else {
-      file <- paste0("~/SigPoisProcess/data/data_for_application/Cancer_covariates/Breast-Cancer_", type, "_", mark, "_2kb.bigWig")
+      file <- paste0("~/SigPoisProcess/data/data_for_application/Breast-Cancer_", type, "_", mark, "_2kb.bigWig")
       gr <- bin_gr(import(file), genome_aggreg, std_chrs)
       gr_SignalTrack$mark <- gr$score
       colnames(mcols(gr_SignalTrack))[ncol(mcols(gr_SignalTrack))] <- mark
@@ -227,31 +227,18 @@ gr_tumor_2kb_std <- merge_with_tumor(gr_tumor, gr_SignalTrack_2kb_std)
 gr_Mutations <- gr_tumor_2kb_std
 gr_Mutations$bin_weight <- NULL
 
-# Signatures to use
-Cosmic_Sigs <- CompressiveNMF::COSMIC_v3.4_SBS96_GRCh37
-sigs_to_use <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8", "SBS20",
-                 "SBS26", "SBS17a", "SBS17b", "SBS18", "SBS30")
-Sigs <- Cosmic_Sigs[, sigs_to_use]
-
-# Baseline model
+# Matrix version of the signal and copytrack
 mutMatrix <- getTotalMutations(gr_Mutations)
-mutMatrix <- getTotalMutations(gr_Mutations)
-outBase <- CompressiveNMF::CompressiveNMF_map(mutMatrix,
-                                              K = 20,
-                                              alpha = 1.01, a = 1.01)
-CompressiveNMF::plot_SBS_signature(outBase$Signatures)
-# SignalTrack and CopyTrack matrices
 SignalTrack <- as.matrix(mcols(gr_SignalTrack_2kb_std))[, -1]
 CopyTrack <- apply(as.matrix(mcols(gr_CopyTrack))[, -1], 2,
                    function(x) x * gr_CopyTrack$bin_weight)[, colnames(mutMatrix)]
 
-# Save all data now to avoid re-loading them
-# saveRDS(list("gr_Mutations" = gr_Mutations,
-#              "SignalTrack" = SignalTrack,
-#              "CopyTrack" = CopyTrack),
-#         file = "~/SigPoisProcess/data/ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip")
-
-
-
+data <- list("gr_Mutations" = gr_Mutations,
+             "SignalTrack" = SignalTrack,
+             "CopyTrack" = CopyTrack,
+             "gr_CopyTrack" = gr_CopyTrack,
+             "gr_SignalTrack" = gr_SignalTrack_2kb_std)
+#saveRDS(data, file = "~/SigPoisProcess/data/ICGC_BreastAdenoCA_avg2kb_Mutations_Covariates_Copies.rds.gzip")
+rm(list = setdiff(ls(), c("data", names(Filter(is.function, mget(ls(), .GlobalEnv))))), envir = .GlobalEnv)
 
 
