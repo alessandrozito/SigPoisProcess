@@ -24,8 +24,9 @@ data/*
 
 
 old_files/
+
 output/
-!output/Simulation/simulation_results2.tsv2
+!output/Simulation/simulation_results2.tsv
 
 R/old_scripts/
 R/old_cpp_files/
