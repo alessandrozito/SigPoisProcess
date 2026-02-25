@@ -26,10 +26,19 @@ library(SigPoisProcess)
 
 ### Application 1 - de novo signature extraction
 
-* Figur
+* Files to assemble the data and run the model
+  - `R/Load_ICGC_BreastAdenoCA_data.R`
+  - `R/Application_denovo.R`
+
+* Figure 3 and Figure 4 - prediction of mutations at Mb rate and posterior estimates
+  - `R/Reproduce_figures_Application_denovo.R`
 
 ### Application 2 - Fixed signatures analysiss
 
+* Files to assemble the data and run the model
+  - `R/Application_refit.R`
 
+* Figure 5 - output of the posterior quantities
+  - `R/Reproduce_figures_Application_refit.R`
 
 
