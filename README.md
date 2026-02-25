@@ -30,15 +30,24 @@ library(SigPoisProcess)
   - `R/Load_ICGC_BreastAdenoCA_data.R`
   - `R/Application_denovo.R`
 
+* Exploratory data analysis and intial comparisons
+  - `R/Application_EDA_and_comparisons.R`
+  
 * Figure 3 and Figure 4 - prediction of mutations at Mb rate and posterior estimates
   - `R/Reproduce_figures_Application_denovo.R`
 
-### Application 2 - Fixed signatures analysiss
+* Figure S2 - Comparison between PPF, CompNMF, and SignatureAnalyzer
+  - `R/`
+
+* Figure S2 - Effective sample sizes
+  - `R/`
+
+### Application 2 - Fixed signatures analysis
 
 * Files to assemble the data and run the model
   - `R/Application_refit.R`
 
-* Figure 5 - output of the posterior quantities
+* Figure 5 - panels a, b and c
   - `R/Reproduce_figures_Application_refit.R`
 
 
