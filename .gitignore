@@ -26,7 +26,9 @@ output/*
 !output/Application/Breast_DeNovo/
 !output/Application/Breast_DeNovo/**
 output/Application/Breast_DeNovo/MapSolutions/Replicate03/MCMCSolution.rds.gzip
-
+!output/Application/Breast_refit/
+!output/Application/Breast_refit/**
+output/Application/Breast_refit/MCMCSolution_SemiSupervised_noMap.rds.gzip
 
 # Additional folders with old files
 old_files/
