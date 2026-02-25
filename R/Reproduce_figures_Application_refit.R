@@ -22,6 +22,17 @@ library(SigPoisProcess)
 ######################################################################
 # Plotting functions
 
+get_PosteriorEffectiveSize <- function(chain, burnin = 1500){
+  if(is.null(dim(chain))){
+    coda::effectiveSize(chain[-c(1:burnin)])
+  } else if(length(dim(chain)) == 2) {
+    apply(chain[-c(1:burnin), ], 2, function(x) coda::effectiveSize(x))
+  } else if (length(dim(chain)) == 3){
+    apply(chain[-c(1:burnin), ,], c(2,3), function(x) coda::effectiveSize(x))
+  }
+}
+
+
 plot_betas_capped <- function(Betas_sol, lowCI, highCI) {
   df_betas <- as.data.frame(Betas_sol) %>%
     tibble::rownames_to_column("Covariate") %>%
@@ -201,6 +212,7 @@ source("~/SigPoisProcess/R/Load_ICGC_BreastAdenoCA_data.R")
 
 # Load the output
 resultsMCMC_refit <- readRDS("~/SigPoisProcess/output/Application/Breast_refit/resultsMCMC_refit.rds.gzip")
+postBurnChain_MCMC_refit <- readRDS("~/SigPoisProcess/output/Application/Breast_refit/postBurnChain_MCMC_refit.rds.gzip")
 
 #-- Signatures
 Sigs_to_use <- c("SBS1", "SBS2", "SBS3", "SBS5", "SBS13", "SBS6", "SBS8", "SBS20",
@@ -401,3 +413,78 @@ p_panels <- p_intensity/p_track + plot_layout(heights = c(1.6, 1))
 p_panels
 ggsave(plot = p_panels, filename = "~/SigPoisProcess/figures/Figure5_c_.png",
        width = 11.68, height = 5.91)
+
+
+################################################ Figure S5
+
+# ---- recalculate mu for this solution (post-burnin)
+mu <- colMeans(postBurnChain_MCMC_refit$Mu)
+
+# ---- Compute mat_allCopy and adjusted ThetaChain as before
+mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
+ThetaChain_adj <- postBurnChain_MCMC_refit$Baselines[, mu > 0.01, ]
+for (s in 1:dim(ThetaChain_adj)[1]) {
+  ThetaChain_adj[s,,] <- mat_allCopy * ThetaChain_adj[s,,]
+}
+
+# ---- Calculate effective sample sizes
+ThetaEffects <- get_PosteriorEffectiveSize(ThetaChain_adj, burnin = 0)
+BetasEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_refit$Betas[, , mu > 0.01], burnin = 0)
+Sigma2Effects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_refit$sigma2[, mu > 0.01], burnin = 0)
+MuEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_refit$Mu[, mu > 0.01], burnin = 0)
+lpEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_refit$logPost, burnin = 0)
+
+# ---- Make tidy data frame
+effects_df <- tibble(
+  value = c(ThetaEffects, BetasEffects, MuEffects),
+  quantity = factor(rep(
+    c("Theta([0, T))", "B", "mu"),
+    times = c(length(ThetaEffects), length(BetasEffects), length(MuEffects))
+  ),
+  levels = c("Theta([0, T))", "B", "mu"))
+)
+
+# ---- Effective sample size boxplot
+p_effective <- ggplot(effects_df, aes(x = "", y = value)) +
+  geom_boxplot() +
+  facet_wrap(~ quantity, nrow = 1, scales = "free") +
+  labs(x = "", y = "Effective Sample Size") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+# ---- Log posterior trace plot
+p_logPost <- ggplot(
+  data = data.frame(
+    iter = 1:(length(postBurnChain_MCMC_refit$logPost)),
+    logPosterior = postBurnChain_MCMC_refit$logPost
+  )
+) +
+  geom_line(aes(x = iter, y = logPosterior)) +
+  theme_bw() +
+  facet_wrap(~ "logposterior trace", nrow = 1) +
+  xlab("post-burnin iteration")
+
+p_ess_fixed <- p_effective + p_logPost + plot_layout(nrow = 1, widths = c(2, 1))
+
+p_ess_fixed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -316,30 +316,4 @@ if(rerun_postprocessing) {
 }
 
 
-###############################################################################
-# Calculate effective sample sizes
-mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
-ThetaChain_adj <- outMCMC$chain$THETAchain[-c(1:7600), mu > 0.01, ]
-array_AllCopy <- array(NA, dim = c(3000, 9, 113))
-for(s in 1:3000) ThetaChain_adj[s,,] <- mat_allCopy * ThetaChain_adj[s, , ]
-
-REffects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGSchain[, , mu > 0.01], burnin = 7600)
-ThetaEffects <- get_PosteriorEffectiveSize(ThetaChain_adj, burnin = 0)
-BetasEffects <- get_PosteriorEffectiveSize(outMCMC$chain$BETASchain[, , mu > 0.01], burnin = 7600)
-Sigma2Effects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGMA2chain[, mu > 0.01], burnin = 7600)
-MuEffects <- get_PosteriorEffectiveSize(outMCMC$chain$MUchain[, mu > 0.01], burnin = 7600)
-lpEffects <- get_PosteriorEffectiveSize(outMCMC$chain$logPostchain, burnin = 7600)
-
-#---- Calculate the posterior effective sample sizes
-mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
-ThetaChain_adj <- outMCMC$chain$THETAchain[-c(1:7600), mu > 0.01, ]
-array_AllCopy <- array(NA, dim = c(3000, 9, 113))
-for(s in 1:3000) ThetaChain_adj[s,,] <- mat_allCopy * ThetaChain_adj[s, , ]
-
-REffects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGSchain[, , mu > 0.01], burnin = 7600)
-ThetaEffects <- get_PosteriorEffectiveSize(ThetaChain_adj, burnin = 0)
-BetasEffects <- get_PosteriorEffectiveSize(outMCMC$chain$BETASchain[, , mu > 0.01], burnin = 7600)
-Sigma2Effects <- get_PosteriorEffectiveSize(outMCMC$chain$SIGMA2chain[, mu > 0.01], burnin = 7600)
-MuEffects <- get_PosteriorEffectiveSize(outMCMC$chain$MUchain[, mu > 0.01], burnin = 7600)
-lpEffects <- get_PosteriorEffectiveSize(outMCMC$chain$logPostchain, burnin = 7600)
 

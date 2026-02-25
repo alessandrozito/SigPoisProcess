@@ -16,7 +16,7 @@ library(SigPoisProcess)
 ### Figure 1 - Patterns of mutations along the genome
 
 * Figure 1 panel a and - Aggregate mutations at the Mb scale, and relationship between mutations at the 2kb scale and signal from H3K9me3
-  - `R/reproduce_Figure_1_panels_a_b.R`
+  - `R/Reproduce_Figure_1_panels_a_b.R`
 
 ### Simulation study in the paper
 
@@ -30,24 +30,15 @@ library(SigPoisProcess)
   - `R/Load_ICGC_BreastAdenoCA_data.R`
   - `R/Application_denovo.R`
 
-* Exploratory data analysis and intial comparisons
-  - `R/Application_EDA_and_comparisons.R`
-  
-* Figure 3 and Figure 4 - prediction of mutations at Mb rate and posterior estimates
+* Figure 3, 4, S2, S3 and S4
   - `R/Reproduce_figures_Application_denovo.R`
-
-* Figure S2 - Comparison between PPF, CompNMF, and SignatureAnalyzer
-  - `R/`
-
-* Figure S2 - Effective sample sizes
-  - `R/`
 
 ### Application 2 - Fixed signatures analysis
 
-* Files to assemble the data and run the model
+* Files to assemble the data and run the models
   - `R/Application_refit.R`
 
-* Figure 5 - panels a, b and c
+* Figure 5 and S5  
   - `R/Reproduce_figures_Application_refit.R`
 
 

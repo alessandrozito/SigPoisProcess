@@ -1,5 +1,5 @@
 ################################################################################
-# This file plots Figure 3 and 4 in the main paper
+# This file makes the plots for the denovo application
 ################################################################################
 #---- Load packages
 library(tidyverse)
@@ -21,6 +21,17 @@ library(SigPoisProcess)
 
 ######################################################################
 # Plotting functions
+
+get_PosteriorEffectiveSize <- function(chain, burnin = 1500){
+  if(is.null(dim(chain))){
+    coda::effectiveSize(chain[-c(1:burnin)])
+  } else if(length(dim(chain)) == 2) {
+    apply(chain[-c(1:burnin), ], 2, function(x) coda::effectiveSize(x))
+  } else if (length(dim(chain)) == 3){
+    apply(chain[-c(1:burnin), ,], c(2,3), function(x) coda::effectiveSize(x))
+  }
+}
+
 
 plot_sigs <- function(signatures,
                       lowCI = NULL,
@@ -217,6 +228,7 @@ source("~/SigPoisProcess/R/Load_ICGC_BreastAdenoCA_data.R")
 
 # Load the output
 resultsMCMC_denovo <- readRDS("~/SigPoisProcess/output/Application/Breast_DeNovo/resultsMCMC_denovo.rds.gzip")
+postBurnChain_MCMC_denovo <- readRDS("~/SigPoisProcess/output/Application/Breast_DeNovo/postBurnin_MCMC_denovo.rds.gzip")
 
 ################################################################################
 # Step 2 - Make plots
@@ -456,11 +468,194 @@ p_reconstrNoCovs <- ggplot(df_tumor_allNoCovs) +
 ggsave("../figures/Figure3_recontructed_Mbscale.pdf", width = 9.25, height=4.65)
 
 
+########################################### Additional results in the supplement
+
+#---- Figure S2 - correlation across covariates
+# Correlation an the whole track
+corrplot::corrplot(
+  cor(data$SignalTrack),
+  type = "lower",
+  addCoef.col = "gray25",
+  number.cex = 0.7,
+  diag = FALSE
+)
+
+# Correlation an the mutations
+corrplot::corrplot(
+  cor(as.matrix(mcols(data$gr_Mutations[, -c(1,2,3)]))),
+  type = "lower",
+  addCoef.col = "gray25",
+  number.cex = 0.7,
+  diag = FALSE
+)
+
+################################################ Figure S3
+# Confrontation between CompNMF, SignatureAnalyzer, and SigPoisProcess
+mutMatrix <- getTotalMutations(data$gr_Mutations)
+
+if(rerun_competitors) {
+  set.seed(10)
+  BaselineNMF <- CompressiveNMF::CompressiveNMF_map(mutMatrix,
+                                                    K = 30,
+                                                    alpha = 1.01, a = 1.01)
+
+  set.seed(10)
+  out_SigAnalyzerL1KL <- sigminer::sig_auto_extract(nmf_matrix = t(mutMatrix), method = "L1KL", cores = 20)
+  set.seed(10)
+  out_SigAnalyzerL1W.L2H <- sigminer::sig_auto_extract(nmf_matrix = t(mutMatrix), method = "L1W.L2H", cores = 20)
+
+  saveRDS(BaselineNMF, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/BaselineNMF/out_CompNMF.rds")
+  saveRDS(out_SigAnalyzerL1KL, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/BaselineNMF/out_SigAnalyzerL1KL.rds")
+  saveRDS(out_SigAnalyzerL1W.L2H, file = "~/SigPoisProcess/output/Application/Breast_DeNovo/BaselineNMF/out_SigAnalyzerL1WL2H.rds")
+
+}
+
+BaselineNMF <- readRDS(file = "~/SigPoisProcess/output/Application/Breast_DeNovo/out_CompNMF.rds")
+out_SigAnalyzerL1KL <- readRDS(file = "~/SigPoisProcess/output/Application/Breast_DeNovo/out_SigAnalyzerL1KL.rds")
+out_SigAnalyzerL1W.L2H <- readRDS(file = "~/SigPoisProcess/output/Application/Breast_DeNovo/out_SigAnalyzerL1WL2H.rds")
+
+plot_sigs(BaselineNMF$Signatures)
+match_to_RefSigs(BaselineNMF$Signatures, SigPoisProcess::COSMIC_v3.4_SBS96_GRCh37)
+plot_sigs(out_SigAnalyzerL1KL$Signature.norm)
+match_to_RefSigs(out_SigAnalyzerL1KL$Signature.norm, SigPoisProcess::COSMIC_v3.4_SBS96_GRCh37)
+plot_sigs(out_SigAnalyzerL1W.L2H$Signature.norm)
+
+MatEst <- SigPoisProcess:::Reconstruct_CountMatrix(SignalTrack = data$SignalTrack,
+                                                   CopyTrack = data$CopyTrack,
+                                                   R = SigsMean, Theta = ThetaMean,
+                                                   Betas = BetasMean)
+# Reconstructon PPF
+plot(MatEst, mutMatrix)
+rmse_1 <- sqrt(mean((MatEst - mutMatrix)^2))
+# Reconstructon CompNMF
+plot(BaselineNMF$Signatures %*% BaselineNMF$Theta, mutMatrix)
+rmse_2 <- sqrt(mean((BaselineNMF$Signatures %*% BaselineNMF$Theta - mutMatrix)^2))
+# Reconstructon SignatureAnalyzer
+plot(out_SigAnalyzerL1KL$Signature.norm %*% out_SigAnalyzerL1KL$Exposure, mutMatrix)
+rmse_3 <- sqrt(mean((out_SigAnalyzerL1KL$Signature.norm %*% out_SigAnalyzerL1KL$Exposure - mutMatrix)^2))
+
+round(c(rmse_1, rmse_2, rmse_3), 2)
+
+# Match with baseline
+match_w_baseline <- match_MutSign(R_true = SigsMean,
+                                  R_hat = BaselineNMF$Signatures)
+colnames(match_w_baseline$R_hat) <- colnames(match_w_baseline$R_true)
 
 
+# Match with SignatureAnalyzer
+match_w_sigAnalyzer <- match_MutSign(R_true = SigsMean,
+                                     R_hat = out_SigAnalyzerL1KL$Signature.norm)
+colnames(match_w_sigAnalyzer$R_hat) <- colnames(match_w_sigAnalyzer$R_true)
+plot_sigs(match_w_baseline$R_true) + plot_sigs(match_w_baseline$R_hat) + plot_sigs(match_w_sigAnalyzer$R_hat)
+ggsave("~/SigPoisProcess/figures/Breast_suppl_Signatures_comparison.pdf",
+       width = 13.42, height = 5.64)
 
 
+###################################################### Figure S4
+# Calculate effective sample sizes
+mat_allCopy <- t(colSums(data$CopyTrack))[rep(1, sum(mu > 0.01)), ]
+ThetaChain_adj <- postBurnChain_MCMC_denovo$Baselines[, mu > 0.01, ]
+array_AllCopy <- array(NA, dim = c(3000, 9, 113))
+for(s in 1:3000) ThetaChain_adj[s,,] <- mat_allCopy * ThetaChain_adj[s, , ]
 
+REffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_denovo$Signatures[, , mu > 0.01], burnin = 0)
+ThetaEffects <- get_PosteriorEffectiveSize(ThetaChain_adj, burnin = 0)
+BetasEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_denovo$Betas[, , mu > 0.01], burnin = 0)
+Sigma2Effects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_denovo$sigma2[, mu > 0.01], burnin = 0)
+MuEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_denovo$Mu[, mu > 0.01], burnin = 0)
+lpEffects <- get_PosteriorEffectiveSize(postBurnChain_MCMC_denovo$logPost, burnin = 0)
+
+effects_df <- tibble(
+  value = c(REffects, ThetaEffects, BetasEffects, MuEffects),
+  quantity = factor(rep(
+    c("R", "Theta", "B", "mu"),
+    times = c(length(REffects), length(ThetaEffects), length(BetasEffects),
+              length(MuEffects))
+  ),
+  levels = c("R", "Theta", "B", "mu"))
+)
+
+p_effective <- ggplot(effects_df, aes(x = "", y = value)) +
+  geom_boxplot() +
+  facet_wrap(~ quantity, nrow = 1, scales = "free") +
+  labs(x = "", y = "Effective Sample Size") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+p_logPost <- ggplot(data = data.frame(iter = 1:3000,
+                                      logPosterior = postBurnChain_MCMC_denovo$logPost))+
+  geom_line(aes(x = iter, y = logPosterior)) +
+  theme_bw()+
+  facet_wrap(~ "logposterior trace", nrow = 1) +
+  xlab("post-burnin iteration")
+
+p_ess <- p_effective + p_logPost + plot_layout(nrow = 1, widths =  c(2, 1))
+p_ess
+
+###################################################### Additional results
+
+#----  Summary of the MAP outputs
+outMAP1 <- readRDS("~/SigPoisProcess/output/Application/Breast_DeNovo/MapSolutions/Replicate01/MAPSolution.rds.gzip")
+outMAP2 <- readRDS("~/SigPoisProcess/output/Application/Breast_DeNovo/MapSolutions/Replicate02/MAPSolution.rds.gzip")
+outMAP3 <- readRDS("~/SigPoisProcess/output/Application/Breast_DeNovo/MapSolutions/Replicate03/MAPSolution.rds.gzip")
+
+times_all <- rbind(c("iter" = outMAP1$sol$iter, "time" = as.numeric(outMAP1$time, unit = "secs")),
+                   c("iter" = outMAP2$sol$iter, "time" = as.numeric(outMAP2$time, unit = "secs")),
+                   c("iter" = outMAP3$sol$iter, "time" = as.numeric(outMAP3$time, unit = "secs")))
+
+# Plot the times to run the algoithms
+(times_all[, 2]/times_all[, 1]) * 60
+
+# How many signatures were selected in each case?
+sum(outMAP1$Mu > 0.001)
+sum(outMAP2$Mu > 0.001)
+sum(outMAP3$Mu > 0.001)
+
+
+match12 <- match_MutSign(outMAP1$Signatures, outMAP2$Signatures)
+mean(diag(cosine(match12$R_hat, match12$R_true)))
+
+match13 <- match_MutSign(match12$R_true, outMAP3$Signatures)
+mean(diag(cosine(match13$R_hat, match13$R_true)))
+
+match23 <- match_MutSign(outMAP2$Signatures, outMAP3$Signatures)
+mean(diag(cosine(match23$R_hat, match23$R_true)))
+
+plot_96SBSsig(match12$R_hat) + plot_96SBSsig(match12$R_true) + plot_96SBSsig(match23$R_hat)
+
+#---- Introduction: difference between gr for chromosome 1p and 1q
+chr1_arms_gr <- GRanges(
+  seqnames = c("chr1", "chr1"),
+  ranges = IRanges(
+    start = c(1, 124535434),
+    end = c(121535433, 249250621)
+  ),
+  arm = c("1p", "1q")
+)
+
+df_chrom1pq <- as.data.frame(data$gr_Mutations)
+df_chrom1pq$region <- NA
+over1pq <- findOverlaps(data$gr_Mutations, chr1_arms_gr)
+df_chrom1pq$region[queryHits(over1pq)] <- subjectHits(over1pq)
+
+df_copy1pq <- as.data.frame(data$gr_CopyTrack)
+df_copy1pq$region <- NA
+overCopy1pq <- findOverlaps(data$gr_CopyTrack, chr1_arms_gr)
+df_copy1pq$region[queryHits(overCopy1pq)] <- subjectHits(overCopy1pq)
+
+df_chrom1pq %>%
+  filter(!is.na(region)) %>%
+  group_by(region) %>%
+  summarise(n = n()) %>%
+  left_join(df_copy1pq %>%
+              dplyr::select(region, DO1076:DO52562) %>%
+              drop_na() %>%
+              gather(key = "key", value = "value", -region) %>%
+              group_by(region) %>%
+              summarise(Copies = 2 * mean(value)), by = "region")
 
 
 

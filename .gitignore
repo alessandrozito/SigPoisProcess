@@ -33,5 +33,7 @@ output/Application/Breast_refit/MCMCSolution_SemiSupervised_noMap.rds.gzip
 # Additional folders with old files
 old_files/
 R/old_scripts/
+figures/old_figures/
+R/scripts_for_data_download/
 R/old_cpp_files/
 
